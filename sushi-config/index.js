@@ -1,8 +1,40 @@
-require("dotenv/config")
+if (process.env.DOTENV_PATH) {
+    console.log("Using custom .env path:", process.env.DOTENV_PATH)
+    require("dotenv").config({ path: process.env.DOTENV_PATH })
+} else {
+    require("dotenv")
+}
 require("@nomiclabs/hardhat-waffle")
 require("hardhat-deploy")
 require("solidity-coverage")
 require("hardhat-gas-reporter")
+
+function isObject(item) {
+    return (item && typeof item === 'object' && !Array.isArray(item));
+}
+  
+function isArray(item) {
+    return (item && Array.isArray(item));
+}
+  
+function merge(target, source) {
+    let output = Object.assign({}, target);
+    if (isObject(target) && isObject(source)) {
+      Object.keys(source).forEach(key => {
+        if (isObject(source[key])) {
+          if (!(key in target))
+            Object.assign(output, { [key]: source[key] });
+          else
+            output[key] = merge(target[key], source[key]);
+        } else if (isArray(source[key])) {
+            output[key] = output[key].concat(source[key]);
+        } else {
+          Object.assign(output, { [key]: source[key] });
+        }
+      });
+    }
+    return output;
+  }
 
 const { ethers } = require("ethers")
 
@@ -200,6 +232,76 @@ let networks = {
     },
 }
 
+let hardhat_config = {
+    defaultNetwork: "hardhat",
+    namedAccounts: {},
+    gasReporter: {
+        enabled: true,
+        outputFile: "gasReport.txt",
+        noColors: true,
+        currency: "USD",
+        coinmarketcap: process.env.COINMARKETCAP_API_KEY,
+    },
+    networks: networks,
+    paths: {
+        artifacts: "artifacts",
+        cache: "cache",
+        deploy: "deploy",
+        deployments: "deployments",
+        imports: "imports",
+        sources: "contracts",
+        tests: "test",
+    },
+    solidity: {
+        version: "0.6.12",
+        settings: {
+            optimizer: {
+                enabled: true,
+                runs: 500,
+            },
+        },
+    },
+}
+
+let prettier_config = {
+    overrides: [
+        {
+            files: "*.sol",
+            options: {
+                bracketSpacing: false,
+                printWidth: 145,
+                tabWidth: 4,
+                useTabs: false,
+                singleQuote: false,
+                explicitTypes: "always",
+                endOfLine: "lf",
+            },
+        },
+        {
+            files: "*.js",
+            options: {
+                printWidth: 145,
+                semi: false,
+                trailingComma: "es5",
+                tabWidth: 4,
+                endOfLine: "lf",
+            },
+        },
+        {
+            files: "*.json",
+            options: {
+                printWidth: 145,
+                semi: false,
+                trailingComma: "es5",
+                tabWidth: 4,
+                endOfLine: "lf",
+            },
+        },
+    ],
+}
+
 module.exports = {
-    networks,
+    hardhat_config,
+    prettier_config,
+    merge
 }

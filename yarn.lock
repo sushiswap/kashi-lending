@@ -610,8 +610,25 @@
   integrity sha512-Khd2i6Bob9uk7dCgVkhUioEoxRP28m6aj25MegAHvnJyxZPVzZDhxSkeL6wdv5MeAp2DwHkYqUq03KDfVTTP4Q==
 
 "@sushiswap/hardhat-framework@sushiswap/hardhat-framework":
-  version "1.0.0"
-  resolved "https://codeload.github.com/sushiswap/hardhat-framework/tar.gz/9a230a94f7959654991aad21e4378baaac32ecda"
+  version "1.0.4"
+  resolved "https://codeload.github.com/sushiswap/hardhat-framework/tar.gz/967f050847da18a44012571de07e2292f98473ff"
+  dependencies:
+    "@nomiclabs/hardhat-ethers" "^2.0.1"
+    "@nomiclabs/hardhat-waffle" "^2.0.1"
+    "@sushiswap/core" "^1.4.2"
+    chai "^4.3.0"
+    dotenv "^8.2.0"
+    ethereum-waffle "^3.2.2"
+    ethers "^5.0.31"
+    hardhat "^2.0.10"
+    hardhat-deploy "^0.7.0-beta.44"
+    hardhat-gas-reporter "^1.0.4"
+    husky "^5.0.9"
+    prettier "^2.2.1"
+    prettier-plugin-solidity "^1.0.0-beta.5"
+    pretty-quick "^3.1.0"
+    solc "0.6.12"
+    solidity-coverage "^0.7.14"
 
 "@szmarczak/http-timer@^1.1.2":
   version "1.1.2"

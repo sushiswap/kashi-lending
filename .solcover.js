@@ -1,3 +1,6 @@
-module.exports = {
-    skipFiles: ["libraries/FixedPoint.sol", "libraries/FullMath.sol", "libraries/SignedSafeMath.sol", "mocks/", "interfaces/"],
-}
+const { merge } = require("./sushi-config")
+const { coverage } = require("./boring")
+
+module.exports = merge(coverage, {
+    skipFiles: ["mocks/", "interfaces/"],
+})
