@@ -11,7 +11,7 @@ const {
     setKashiPairContractApproval,
     createFixture,
     ADDRESS_ZERO,
-    KashiPair
+    KashiPair,
 } = require("@sushiswap/hardhat-framework")
 const { defaultAbiCoder } = require("ethers/lib/utils")
 

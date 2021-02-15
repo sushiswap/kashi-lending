@@ -1,13 +1,12 @@
 console.log("Parsing hardhat configuration")
-const { networks } = require('./sushi-config')
+const { networks } = require("./sushi-config")
 
 require("@nomiclabs/hardhat-waffle")
 require("hardhat-deploy")
 
 module.exports = {
     defaultNetwork: "hardhat",
-    namedAccounts: {
-    },
+    namedAccounts: {},
     networks: networks,
     paths: {
         artifacts: "artifacts",
@@ -26,5 +25,5 @@ module.exports = {
                 runs: 256,
             },
         },
-    }
+    },
 }

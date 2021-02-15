@@ -12,7 +12,7 @@ const {
     setMasterContractApproval,
     setKashiPairContractApproval,
     createFixture,
-    KashiPair
+    KashiPair,
 } = require("@sushiswap/hardhat-framework")
 
 let cmd, fixture
