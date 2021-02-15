@@ -1,12 +1,17 @@
 console.log("Parsing hardhat configuration")
-const { networks } = require("./sushi-config")
 
-require("@nomiclabs/hardhat-waffle")
-require("hardhat-deploy")
+const { networks } = require("./sushi-config")
 
 module.exports = {
     defaultNetwork: "hardhat",
     namedAccounts: {},
+    gasReporter: {
+        enabled: true,
+        outputFile: "gasReport.txt",
+        noColors: true,
+        currency: "USD",
+        coinmarketcap: process.env.COINMARKETCAP_API_KEY,
+    },
     networks: networks,
     paths: {
         artifacts: "artifacts",

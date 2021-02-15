@@ -3,4 +3,7 @@ cache/
 node_modules/
 .vscode/
 .env
-yarn-error.log
+yarn-error.
+coverage
+coverage.json
+gasReport.txt

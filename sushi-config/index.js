@@ -1,4 +1,10 @@
-const { ethers } = require('ethers')
+require("dotenv/config")
+require("@nomiclabs/hardhat-waffle")
+require("hardhat-deploy")
+require("solidity-coverage")
+require("hardhat-gas-reporter")
+
+const { ethers } = require("ethers")
 
 const test_accounts = {
     mnemonic: "test test test test test test test test test test test junk",
@@ -195,5 +201,5 @@ let networks = {
 }
 
 module.exports = {
-    networks
+    networks,
 }
