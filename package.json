@@ -1,0 +1,21 @@
+{
+  "scripts": {
+    "test": "hardhat test"
+  },
+  "devDependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.0.1",
+    "@nomiclabs/hardhat-waffle": "^2.0.1",
+    "@sushiswap/core": "^1.4.2",
+    "@sushiswap/hardhat-framework": "sushiswap/hardhat-framework",
+    "chai": "^4.3.0",
+    "ethereum-waffle": "^3.2.2",
+    "ethers": "^5.0.31",
+    "hardhat": "^2.0.10",
+    "solc": "0.6.12"
+  },
+  "dependencies": {
+    "@boringcrypto/boring-solidity": "boringcrypto/BoringSolidity#0257ecf",
+    "@sushiswap/bentobox-sdk": "sushiswap/bentobox-sdk#4561f85",
+    "hardhat-deploy": "^0.7.0-beta.44"
+  }
+}
