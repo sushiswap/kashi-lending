@@ -1,6 +1,1 @@
-const { merge } = require("./sushi-config")
-const { coverage } = require("./boring")
-
-module.exports = merge(coverage, {
-    skipFiles: ["mocks/", "interfaces/"],
-})
+module.exports = require("@sushiswap/hardhat-framework").solcover_config(require("./settings").solcover)

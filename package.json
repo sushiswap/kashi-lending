@@ -1,5 +1,4 @@
 {
-    "private": true,
     "scripts": {
         "test": "hardhat test",
         "format": "prettier --write contracts/**/*.sol *.js *.json test/**/*.js",
@@ -12,6 +11,5 @@
     "dependencies": {
         "@boringcrypto/boring-solidity": "boringcrypto/BoringSolidity#0257ecf",
         "@sushiswap/bentobox-sdk": "sushiswap/bentobox-sdk#4561f85"
-    },
-    "version": "1.0.0"
+    }
 }
