@@ -237,21 +237,23 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
         uint256 _exchangeRate
     ) internal view returns (bool) {
         // accrue must have already been called!
-        if (userBorrowPart[user] == 0) return true;
-        if (totalCollateralShare == 0) return false;
+        uint256 borrowPart = userBorrowPart[user];
+        if (borrowPart == 0) return true;
+        uint256 collateralShare = userCollateralShare[user];
+        if (collateralShare == 0) return false;
 
         Rebase memory _totalBorrow = totalBorrow;
 
         return
             bentoBox.toAmount(
                 collateral,
-                userCollateralShare[user].mul(EXCHANGE_RATE_PRECISION / COLLATERIZATION_RATE_PRECISION).mul(
+                collateralShare.mul(EXCHANGE_RATE_PRECISION / COLLATERIZATION_RATE_PRECISION).mul(
                     open ? OPEN_COLLATERIZATION_RATE : CLOSED_COLLATERIZATION_RATE
                 ),
                 false
             ) >=
             // Moved exchangeRate here instead of dividing the other side to preserve more precision
-            userBorrowPart[user].mul(_totalBorrow.elastic).mul(_exchangeRate) / _totalBorrow.base;
+            borrowPart.mul(_totalBorrow.elastic).mul(_exchangeRate) / _totalBorrow.base;
     }
 
     /// @notice Checks if the user is solvent.

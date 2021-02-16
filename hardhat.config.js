@@ -1,1 +1,1 @@
-module.exports = require("@sushiswap/hardhat-framework").hardhat_config(require("./settings").hardhat)
+module.exports = require("@sushiswap/hardhat-framework").config.hardhat(require("./settings").hardhat)

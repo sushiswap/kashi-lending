@@ -611,7 +611,7 @@
 
 "@sushiswap/hardhat-framework@sushiswap/hardhat-framework":
   version "1.0.4"
-  resolved "https://codeload.github.com/sushiswap/hardhat-framework/tar.gz/22a4df7535290073aef50d7d747552e4e1240507"
+  resolved "https://codeload.github.com/sushiswap/hardhat-framework/tar.gz/96083be420935f87a22add7a8debe71f40a75467"
   dependencies:
     "@nomiclabs/hardhat-ethers" "^2.0.1"
     "@nomiclabs/hardhat-waffle" "^2.0.1"
