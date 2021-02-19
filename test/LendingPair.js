@@ -102,7 +102,7 @@ describe("Lending Pair", function () {
 
     describe("Deployment", function () {
         it("Assigns a name", async function () {
-            expect(await this.pairHelper.contract.name()).to.be.equal("Bento Med Risk Token A>Token B-TEST")
+            expect(await this.pairHelper.contract.name()).to.be.equal("Kashi Med Risk Token A>Token B-TEST")
         })
         it("Assigns a symbol", async function () {
             expect(await this.pairHelper.contract.symbol()).to.be.equal("bmA>B-TEST")
@@ -266,12 +266,6 @@ describe("Lending Pair", function () {
         //
     })
 
-    describe("Peek Exchange Rate", function () {
-        it("Returns expected exchange rate", async function () {
-            expect((await this.pairHelper.contract.peekExchangeRate())[1]).to.be.equal(getBigNumber(1, 28))
-        })
-    })
-
     describe("Update Exchange Rate", function () {
         //
     })
@@ -300,15 +294,15 @@ describe("Lending Pair", function () {
         })
 
         it("should take a deposit of assets from BentoBox", async function () {
-            await this.pairHelper.run((cmd) => [cmd.approveAsset(300), cmd.depositAsset(300)])
-            expect(await this.pairHelper.contract.balanceOf(this.alice.address)).to.be.equal(150)
+            await this.pairHelper.run((cmd) => [cmd.approveAsset(3000), cmd.depositAsset(3000)])
+            expect(await this.pairHelper.contract.balanceOf(this.alice.address)).to.be.equal(1500)
         })
 
         it("should emit correct event on adding asset", async function () {
-            await this.b.approve(this.bentoBox.address, 300)
-            await expect(this.pairHelper.depositAsset(290))
+            await this.b.approve(this.bentoBox.address, 3000)
+            await expect(this.pairHelper.depositAsset(2900))
                 .to.emit(this.pairHelper.contract, "LogAddAsset")
-                .withArgs(this.alice.address, this.alice.address, 145, 145)
+                .withArgs(this.alice.address, this.alice.address, 1450, 1450)
         })
     })
 
@@ -400,8 +394,8 @@ describe("Lending Pair", function () {
 
     describe("Borrow", function () {
         it("should not allow borrowing without any assets", async function () {
-            await expect(this.pairHelper.contract.borrow(this.alice.address, 1)).to.be.revertedWith("BoringMath: Underflow")
-            await expect(this.pairHelper.contract.borrow(this.alice.address, 2)).to.be.revertedWith("BoringMath: Underflow")
+            await expect(this.pairHelper.contract.borrow(this.alice.address, 1000)).to.be.revertedWith("BoringMath: Underflow")
+            await expect(this.pairHelper.contract.borrow(this.alice.address, 1)).to.be.revertedWith("KashiPair: user insolvent")
         })
 
         it("should not allow borrowing without any collateral", async function () {
@@ -609,8 +603,8 @@ describe("Lending Pair", function () {
 
     describe("Cook", function () {
         it("can add 2 values to a call and receive 1 value back", async function () {
-            const ACTION_CALL = 10
             const ACTION_BENTO_DEPOSIT = 20
+            const ACTION_CALL = 30
 
             await cmd.deploy("externalFunctionMock", "ExternalFunctionMock")
 
@@ -643,7 +637,7 @@ describe("Lending Pair", function () {
         })
 
         it("reverts on a call to the BentoBox", async function () {
-            const ACTION_CALL = 10
+            const ACTION_CALL = 30
             await expect(
                 this.pairHelper.contract.cook(
                     [ACTION_CALL],
@@ -680,7 +674,7 @@ describe("Lending Pair", function () {
         })
 
         it("get repays part", async function () {
-            const ACTION_GET_REPAY_PART = 41
+            const ACTION_GET_REPAY_PART = 7
             await this.pairHelper.contract.cook([ACTION_GET_REPAY_PART], [0], [defaultAbiCoder.encode(["int256"], [1])])
         })
 
