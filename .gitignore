@@ -7,3 +7,4 @@ yarn-error.log
 coverage
 coverage.json
 gasReport.txt
+bin
