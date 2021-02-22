@@ -264,6 +264,7 @@ module.exports = class KashiPairStateMachine {
         let expected = this.totalAssetElastic
         // xxx this can also be more (can be skimmed)
         expect(expected).to.be.at.most(await this.bentoBox.balanceOf(this.assetToken.address, this.kashiPair.address))
+        //console.log(expected,await this.bentoBox.balanceOf(this.assetToken.address, this.kashiPair.address))
     }
 
     async drainEvents () {

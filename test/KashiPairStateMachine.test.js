@@ -146,13 +146,13 @@ describe("KashiPair", function () {
 
             it("add asset", async function () {
                 await this.pairHelper.contract.addAsset(
-                    this.alice.address, true, getBigNumber(DEPOSIT_AMOUNT - 1, await this.assetToken.decimals())
+                    this.alice.address, true, getBigNumber(DEPOSIT_AMOUNT, await this.assetToken.decimals()).sub(2)
                 )
             })
 
             it("add collateral", async function () {
                 await this.pairHelper.contract.addCollateral(
-                    this.alice.address, true, getBigNumber(DEPOSIT_AMOUNT - 1, await this.collateralToken.decimals())
+                    this.alice.address, true, getBigNumber(DEPOSIT_AMOUNT, await this.collateralToken.decimals())
                 )
             })
 
