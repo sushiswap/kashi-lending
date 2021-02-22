@@ -155,7 +155,8 @@ describe("Lending Pair", function () {
 
             let borrowPartLeft = await this.pairHelper.contract.userBorrowPart(this.alice.address)
             let collateralLeft = await this.pairHelper.contract.userCollateralShare(this.alice.address)
-            await this.pairHelper.run((cmd) => [cmd.repay(borrowPartLeft), cmd.withdrawCollateral(sansSafetyAmount(collateralLeft))])
+            await this.pairHelper.run((cmd) => [cmd.repay(borrowPartLeft.sub(getBigNumber(1, 6)))])
+            borrowPartLeft = await this.pairHelper.contract.userBorrowPart(this.alice.address)
 
             // run for a while with 0 utilization
             let rate1 = (await this.pairHelper.contract.accrueInfo()).interestPerBlock
@@ -197,11 +198,7 @@ describe("Lending Pair", function () {
             ])
             let borrowPartLeft = await this.pairHelper.contract.userBorrowPart(this.alice.address)
             let balanceLeft = await this.pairHelper.contract.balanceOf(this.alice.address)
-            await this.pairHelper.run((cmd) => [
-                cmd.repay(borrowPartLeft),
-                cmd.withdrawAsset(balanceLeft),
-                cmd.do(this.pairHelper.contract.accrue),
-            ])
+            await this.pairHelper.run((cmd) => [cmd.repay(borrowPartLeft), cmd.do(this.pairHelper.contract.accrue)])
             expect((await this.pairHelper.contract.accrueInfo()).interestPerBlock).to.be.equal(4566210045)
         })
 
@@ -233,8 +230,8 @@ describe("Lending Pair", function () {
                 cmd.depositAsset(getBigNumber(100, 8)),
                 cmd.approveCollateral(getBigNumber(300)),
                 cmd.depositCollateral(getBigNumber(300)),
-                cmd.do(this.pairHelper.contract.setInterestPerBlock, 4400000000000),
                 cmd.do(this.pairHelper.contract.borrow, this.alice.address, sansBorrowFee(getBigNumber(100, 8))),
+                cmd.do(this.pairHelper.contract.setInterestPerBlock, 4400000000000),
                 cmd.do(this.pairHelper.contract.accrue),
             ])
             await this.pairHelper.contract.accrue()
@@ -394,14 +391,14 @@ describe("Lending Pair", function () {
 
     describe("Borrow", function () {
         it("should not allow borrowing without any assets", async function () {
-            await expect(this.pairHelper.contract.borrow(this.alice.address, 1000)).to.be.revertedWith("BoringMath: Underflow")
-            await expect(this.pairHelper.contract.borrow(this.alice.address, 1)).to.be.revertedWith("KashiPair: user insolvent")
+            await expect(this.pairHelper.contract.borrow(this.alice.address, 10000)).to.be.revertedWith("Kashi: below minimum")
+            await expect(this.pairHelper.contract.borrow(this.alice.address, 1)).to.be.revertedWith("Kashi: below minimum")
         })
 
         it("should not allow borrowing without any collateral", async function () {
             await this.b.approve(this.bentoBox.address, 300)
             await await this.pairHelper.depositAsset(290)
-            await expect(this.pairHelper.contract.borrow(this.alice.address, 1)).to.be.revertedWith("user insolvent")
+            await expect(this.pairHelper.contract.borrow(this.alice.address, 1)).to.be.revertedWith("Kashi: below minimum")
         })
 
         it("should allow borrowing with collateral up to 75%", async function () {
