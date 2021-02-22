@@ -260,6 +260,10 @@ module.exports = class KashiPairStateMachine {
                     .to.be.equal(await this.bentoBox.balanceOf(tokenAddr, user))
             }
         }
+
+        let expected = this.totalAssetElastic
+        // xxx this can also be more (can be skimmed)
+        expect(expected).to.be.at.most(await this.bentoBox.balanceOf(this.assetToken.address, this.kashiPair.address))
     }
 
     async drainEvents () {

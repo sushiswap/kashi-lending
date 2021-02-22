@@ -17,16 +17,16 @@ describe("KashiPair", function () {
             await cmd.deploy("weth9", "WETH9Mock")
             await cmd.deploy("bentoBox", "BentoBoxMock", this.weth9.address)
 
-            await cmd.addToken("a", "Token A", "A", 18, this.ReturnFalseERC20Mock)
-            await cmd.addToken("b", "Token B", "B", 8, this.RevertingERC20Mock)
-            await cmd.addPair("sushiSwapPair", this.a, this.b, 50000, 50000)
+            await cmd.addToken("collateralToken", "Token A", "A", 18, this.ReturnFalseERC20Mock)
+            await cmd.addToken("assetToken", "Token B", "B", 8, this.RevertingERC20Mock)
+            await cmd.addPair("sushiSwapPair", this.collateralToken, this.assetToken, 50000, 50000)
 
-            await cmd.deploy("strategy", "SimpleStrategyMock", this.bentoBox.address, this.a.address)
+            await cmd.deploy("strategy", "SimpleStrategyMock", this.bentoBox.address, this.collateralToken.address)
 
-            await this.bentoBox.setStrategy(this.a.address, this.strategy.address)
+            await this.bentoBox.setStrategy(this.collateralToken.address, this.strategy.address)
             await advanceTime(1209600, ethers)
-            await this.bentoBox.setStrategy(this.a.address, this.strategy.address)
-            await this.bentoBox.setStrategyTargetPercentage(this.a.address, 20)
+            await this.bentoBox.setStrategy(this.collateralToken.address, this.strategy.address)
+            await this.bentoBox.setStrategyTargetPercentage(this.collateralToken.address, 20)
 
             await cmd.deploy("erc20", "ERC20Mock", 10000000)
             await cmd.deploy("kashiPair", "KashiPair", this.bentoBox.address)
@@ -37,7 +37,7 @@ describe("KashiPair", function () {
             await this.oracle.set(getBigNumber(1, 28))
             const oracleData = await this.oracle.getDataParameter()
 
-            await cmd.addKashiPair("pairHelper", this.bentoBox, this.kashiPair, this.a, this.b, this.oracle, oracleData)
+            await cmd.addKashiPair("pairHelper", this.bentoBox, this.kashiPair, this.collateralToken, this.assetToken, this.oracle, oracleData)
 
             // Two different ways to approve the kashiPair
             await setMasterContractApproval(this.bentoBox, this.alice, this.alice, this.alicePrivateKey, this.kashiPair.address, true)
@@ -67,30 +67,30 @@ describe("KashiPair", function () {
         })
 
         it("Approvals for deposit", async function () {
-            await this.a.approve(this.bentoBox.address, getBigNumber(DEPOSIT_AMOUNT, await this.a.decimals()))
-            await this.b.approve(this.bentoBox.address, getBigNumber(DEPOSIT_AMOUNT, await this.b.decimals()))
+            await this.collateralToken.approve(this.bentoBox.address, getBigNumber(DEPOSIT_AMOUNT, await this.collateralToken.decimals()))
+            await this.assetToken.approve(this.bentoBox.address, getBigNumber(DEPOSIT_AMOUNT, await this.assetToken.decimals()))
         })
 
         it("deposit", async function () {
             await this.bentoBox.deposit(
-                this.a.address,
+                this.collateralToken.address,
                 this.alice.address,
                 this.alice.address,
                 0,
-                getBigNumber(DEPOSIT_AMOUNT, await this.a.decimals())
+                getBigNumber(DEPOSIT_AMOUNT, await this.collateralToken.decimals())
             )
             await this.bentoBox.deposit(
-                this.b.address,
+                this.assetToken.address,
                 this.alice.address,
                 this.alice.address,
                 0,
-                getBigNumber(DEPOSIT_AMOUNT, await this.b.decimals())
+                getBigNumber(DEPOSIT_AMOUNT, await this.assetToken.decimals())
             )
         })
 
         it("add asset & collateral", async function () {
-            await this.pairHelper.contract.addAsset(this.alice.address, false, getBigNumber(DEPOSIT_AMOUNT, 8))
-            await this.pairHelper.contract.addCollateral(this.alice.address, false, getBigNumber(DEPOSIT_AMOUNT, 18))
+            await this.pairHelper.contract.addAsset(this.alice.address, false, getBigNumber(DEPOSIT_AMOUNT, await this.assetToken.decimals()))
+            await this.pairHelper.contract.addCollateral(this.alice.address, false, getBigNumber(DEPOSIT_AMOUNT, await this.collateralToken.decimals()))
         })
 
         it("update exchange rate", async function () {
@@ -119,34 +119,45 @@ describe("KashiPair", function () {
 
         describe("skim", function () {
             it("Approvals for deposit", async function () {
-                await this.a.approve(this.bentoBox.address, getBigNumber(DEPOSIT_AMOUNT, await this.a.decimals()))
-                await this.b.approve(this.bentoBox.address, getBigNumber(DEPOSIT_AMOUNT, await this.b.decimals()))
+                await this.collateralToken.approve(
+                    this.bentoBox.address, getBigNumber(DEPOSIT_AMOUNT, await this.collateralToken.decimals())
+                )
+                await this.assetToken.approve(
+                    this.bentoBox.address, getBigNumber(DEPOSIT_AMOUNT, await this.assetToken.decimals())
+                )
             })
 
             it("deposit", async function () {
                 await this.bentoBox.deposit(
-                    this.a.address,
+                    this.collateralToken.address,
                     this.alice.address,
                     this.pairHelper.contract.address,
                     0,
-                    getBigNumber(DEPOSIT_AMOUNT, await this.a.decimals())
+                    getBigNumber(DEPOSIT_AMOUNT, await this.collateralToken.decimals())
                 )
                 await this.bentoBox.deposit(
-                    this.b.address,
+                    this.assetToken.address,
                     this.alice.address,
                     this.pairHelper.contract.address,
                     0,
-                    getBigNumber(DEPOSIT_AMOUNT, await this.b.decimals())
+                    getBigNumber(DEPOSIT_AMOUNT, await this.assetToken.decimals())
                 )
             })
 
-            it("add asset & collateral", async function () {
-                await this.pairHelper.contract.addAsset(this.alice.address, true, getBigNumber(DEPOSIT_AMOUNT / 2, 8))
-                await this.pairHelper.contract.addCollateral(this.alice.address, true, getBigNumber(DEPOSIT_AMOUNT / 2, 18))
+            it("add asset", async function () {
+                await this.pairHelper.contract.addAsset(
+                    this.alice.address, true, getBigNumber(DEPOSIT_AMOUNT - 1, await this.assetToken.decimals())
+                )
+            })
+
+            it("add collateral", async function () {
+                await this.pairHelper.contract.addCollateral(
+                    this.alice.address, true, getBigNumber(DEPOSIT_AMOUNT - 1, await this.collateralToken.decimals())
+                )
             })
 
             it("borrow", async function () {
-                await this.pairHelper.contract.borrow(this.alice.address, getBigNumber(DEPOSIT_AMOUNT, await this.b.decimals()))
+                await this.pairHelper.contract.borrow(this.alice.address, getBigNumber(DEPOSIT_AMOUNT, await this.assetToken.decimals()))
             })
 
             it("advance blocks for accrue", async function () {
@@ -180,13 +191,13 @@ describe("KashiPair", function () {
             })
 
             it("deposit collateral", async function () {
-                await this.b.connect(this.bob).approve(this.bentoBox.address, getBigNumber(DEPOSIT_AMOUNT, await this.b.decimals()))
+                await this.assetToken.connect(this.bob).approve(this.bentoBox.address, getBigNumber(DEPOSIT_AMOUNT, await this.assetToken.decimals()))
                 await this.bentoBox.connect(this.bob).deposit(
-                    this.b.address,
+                    this.assetToken.address,
                     this.bob.address,
                     this.bob.address,
                     0,
-                    getBigNumber(DEPOSIT_AMOUNT, await this.b.decimals())
+                    getBigNumber(DEPOSIT_AMOUNT, await this.assetToken.decimals())
                 )
             })
 
