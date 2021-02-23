@@ -61,12 +61,14 @@ module.exports = class KashiPairStateMachine {
     }
 
     async _verifyBentoTransfer (token, from, to, share) {
-        // `from` may be different in other events, hence drop it
         this._bentoBalanceDeltas.push({ token, from, to, share })
     }
 
     // bentoBox
     async onLogDeposit (token, from, to, amount, share) {
+        this._transfers.push({ token, from, to, share })
+        this._bentoBalanceDeltas.push({ token, from, to, share })
+
         let expected = this._getBentoBalance(token, to).add(share)
         this._setBentoBalance(token, to, expected)
     }
@@ -79,7 +81,6 @@ module.exports = class KashiPairStateMachine {
 
     // bentoBox
     async onLogTransfer (token, from, to, share) {
-        // `from` may be different in other events, hence drop it
         this._transfers.push({ token, from, to, share })
 
         let expected = this._getBentoBalance(token, from).sub(share)
@@ -119,7 +120,7 @@ module.exports = class KashiPairStateMachine {
             return
         }
 
-        let expected = (this.assetBalances[to] || ethers.BigNumber.from(0)).add(share)
+        let expected = (this.assetBalances[to] || ethers.BigNumber.from(0)).add(fraction)
         this.assetBalances[to] = expected
 
         expected = this.totalAssetBase.add(fraction)
@@ -138,14 +139,11 @@ module.exports = class KashiPairStateMachine {
         //this.log({ from, to, share })
 
         let expected = (this.collateralShares[from] || ethers.BigNumber.from(0)).sub(share)
-        //expect(expected).to.be.equal(await this.kashiPair.userCollateralShare(from))
         this.collateralShares[from] = expected
 
         expected = this.totalCollateralShare.sub(share)
-        //expect(expected).to.be.equal(await this.kashiPair.totalCollateralShare())
         this.totalCollateralShare = expected
 
-        //xxx1
         // check balance of collateral token in bento
         await this._verifyBentoTransfer(this.collateralToken.address, this.kashiPair.address, to, share)
     }
@@ -204,12 +202,14 @@ module.exports = class KashiPairStateMachine {
         const share = await this.bentoBox.toShare(this.assetToken.address, amount, true)
         const skim = from === this.bentoBox.address
 
-        ///xxx2
-        //if (from !== this.kashiPair.address) {
-            // no liquidation
+        if (from === this.kashiPair.address) {
+            // probably inside a liquidation
+            this._ignoreTransfers = true
+        } else {
+            // probably not inside a liquidation
             expected = this.totalAssetElastic.add(share)
             this.totalAssetElastic = expected
-        //}
+        }
 
         if (!skim) {
             await this._verifyBentoTransfer(this.assetToken.address, from, this.kashiPair.address, share)
@@ -227,14 +227,18 @@ module.exports = class KashiPairStateMachine {
     }
 
     async verify () {
-        expect(this._bentoBalanceDeltas.length, "should be equal to transfers").to.be.equal(this._transfers.length)
+        if (!this._ignoreTransfers) {
+            // if we are inside a closed liquidation, then it is not possible to predict the asset flow
+            expect(this._bentoBalanceDeltas.length, "should be equal to transfers").to.be.equal(this._transfers.length)
 
-        while (this._transfers.length) {
-            const a = this._transfers.pop()
-            const b = this._bentoBalanceDeltas.pop()
+                while (this._transfers.length) {
+                    const a = this._transfers.pop()
+                    const b = this._bentoBalanceDeltas.pop()
 
-            expect(a).to.be.deep.equal(b)
+                    expect(a).to.be.deep.equal(b)
+                }
         }
+        this._ignoreTransfers = false
 
         expect(this.totalCollateralShare, "total collateral").to.be.equal(await this.kashiPair.totalCollateralShare())
         expect(this.totalAssetBase, "asset base").to.be.equal((await this.kashiPair.totalAsset()).base)
@@ -264,7 +268,7 @@ module.exports = class KashiPairStateMachine {
         let expected = this.totalAssetElastic
         // xxx this can also be more (can be skimmed)
         expect(expected).to.be.at.most(await this.bentoBox.balanceOf(this.assetToken.address, this.kashiPair.address))
-        //console.log(expected,await this.bentoBox.balanceOf(this.assetToken.address, this.kashiPair.address))
+        //this.log(expected, await this.bentoBox.balanceOf(this.assetToken.address, this.kashiPair.address))
     }
 
     async drainEvents () {

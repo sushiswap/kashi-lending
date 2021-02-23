@@ -201,11 +201,18 @@ describe("KashiPair", function () {
                 )
             })
 
-            it("liquidate", async function () {
+            it("open liquidation", async function () {
                 const collateral = (await this.pairHelper.contract.userBorrowPart(this.alice.address)).div(2)
                 await this.pairHelper.contract
                 .connect(this.bob)
                 .liquidate([this.alice.address], [collateral], this.bob.address, "0x0000000000000000000000000000000000000000", true)
+            })
+
+            it("closed liquidation", async function () {
+                const collateral = (await this.pairHelper.contract.userBorrowPart(this.alice.address)).div(2)
+                await this.pairHelper.contract
+                .connect(this.bob)
+                .liquidate([this.alice.address], [collateral], this.swapper.address, this.swapper.address, false)
             })
         })
     })
