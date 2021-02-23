@@ -310,7 +310,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
         uint256 share
     ) public {
         userCollateralShare[to] = userCollateralShare[to].add(share);
-        uint256 oldTotalCollateralShare;
+        uint256 oldTotalCollateralShare = totalCollateralShare;
         totalCollateralShare = oldTotalCollateralShare.add(share);
         _addTokens(collateral, share, oldTotalCollateralShare, skim);
         emit LogAddCollateral(skim ? address(bentoBox) : msg.sender, to, share);
