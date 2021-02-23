@@ -96,6 +96,9 @@ module.exports = class KashiPairStateMachine {
         // xxx
         let expected = this.totalBorrowElastic.add(accruedAmount)
         this.totalBorrowElastic = expected
+
+        expected = this.totalAssetBase.add(feeFraction)
+        this.totalAssetBase = expected
     }
 
     async onLogAddCollateral (from, to, share) {
