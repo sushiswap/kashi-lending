@@ -711,7 +711,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
             // solhint-disable-next-line reentrancy
             bentoBox.transfer(asset, address(this), masterContract.feeTo(), feeShare);
             totalAsset.elastic = totalAsset.elastic.add(returnedShare.sub(feeShare).to128());
-            emit LogAddAsset(address(swapper), address(this), extraShare.sub(feeShare), 0);
+            emit LogAddAsset(address(swapper), address(this), returnedShare.sub(feeShare), 0);
         } else {
             // Swap using a swapper freely chosen by the caller
             // Open (flash) liquidation: get proceeds first and provide the borrow after
