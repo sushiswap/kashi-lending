@@ -695,30 +695,33 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
         totalBorrow = _totalBorrow;
         totalCollateralShare = totalCollateralShare.sub(allCollateralShare);
 
+        uint256 allBorrowShare = bentoBox.toShare(asset, allBorrowAmount, true);
+
         if (!open) {
             // Closed liquidation using a pre-approved swapper for the benefit of the LPs
             require(masterContract.swappers(swapper), "KashiPair: Invalid swapper");
 
             // Swaps the users' collateral for the borrowed asset
             bentoBox.transfer(collateral, address(this), address(swapper), allCollateralShare);
-            swapper.swap(collateral, asset, address(this), allBorrowAmount, allCollateralShare);
+            swapper.swap(collateral, asset, address(this), allBorrowShare, allCollateralShare);
 
-            uint256 extraShare = bentoBox.balanceOf(asset, address(this)).sub(uint256(totalAsset.elastic));
-
+            uint256 returnedShare = bentoBox.balanceOf(asset, address(this)).sub(uint256(totalAsset.elastic));
+            uint256 extraShare = returnedShare.sub(allBorrowShare);
             uint256 feeShare = extraShare.mul(PROTOCOL_FEE) / PROTOCOL_FEE_DIVISOR; // % of profit goes to fee
             // solhint-disable-next-line reentrancy
-            totalAsset.elastic = totalAsset.elastic.add(extraShare.sub(feeShare).to128());
             bentoBox.transfer(asset, address(this), masterContract.feeTo(), feeShare);
+            totalAsset.elastic = totalAsset.elastic.add(returnedShare.sub(feeShare).to128());
             emit LogAddAsset(address(swapper), address(this), extraShare.sub(feeShare), 0);
         } else {
             // Swap using a swapper freely chosen by the caller
             // Open (flash) liquidation: get proceeds first and provide the borrow after
             bentoBox.transfer(collateral, address(this), swapper != ISwapper(0) ? address(swapper) : to, allCollateralShare);
             if (swapper != ISwapper(0)) {
-                swapper.swap(collateral, asset, msg.sender, allBorrowAmount, allCollateralShare);
+                swapper.swap(collateral, asset, msg.sender, allBorrowShare, allCollateralShare);
             }
 
-            bentoBox.transfer(asset, msg.sender, address(this), allBorrowAmount);
+            bentoBox.transfer(asset, msg.sender, address(this), allBorrowShare);
+            totalAsset.elastic = totalAsset.elastic.add(allBorrowShare.to128());
         }
     }
 

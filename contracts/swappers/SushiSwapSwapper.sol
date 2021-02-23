@@ -47,9 +47,9 @@ contract SushiSwapSwapper is ISwapper {
         IERC20 fromToken,
         IERC20 toToken,
         address recipient,
-        uint256 amountToMin,
+        uint256 shareToMin,
         uint256 shareFrom
-    ) public override returns (uint256 extraAmount, uint256 shareTo) {
+    ) public override returns (uint256 extraShare, uint256 shareReturned) {
         IUniswapV2Pair pair = IUniswapV2Pair(factory.getPair(address(fromToken), address(toToken)));
 
         (uint256 amountFrom, ) = bentoBox.withdraw(fromToken, address(this), address(pair), 0, shareFrom);
@@ -63,8 +63,8 @@ contract SushiSwapSwapper is ISwapper {
             amountTo = getAmountOut(amountFrom, reserve1, reserve0);
             pair.swap(amountTo, 0, address(bentoBox), new bytes(0));
         }
-        extraAmount = amountTo.sub(amountToMin);
-        (, shareTo) = bentoBox.deposit(toToken, address(bentoBox), recipient, amountTo, 0);
+        (, shareReturned) = bentoBox.deposit(toToken, address(bentoBox), recipient, amountTo, 0);
+        extraShare = shareReturned.sub(shareToMin);
     }
 
     // Swaps to an exact amount, from a flexible input amount

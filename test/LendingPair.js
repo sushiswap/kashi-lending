@@ -538,11 +538,14 @@ describe("Lending Pair", function () {
         it("should not allow shorting into insolvency", async function () {
             await expect(
                 this.pairHelper.run((cmd) => [
+                    // Bob adds 1000 asset (amount)
                     cmd.as(this.bob).approveAsset(getBigNumber(1000, 8)),
                     cmd.as(this.bob).depositAsset(getBigNumber(1000, 8)),
+                    // Alice adds 100 collateral (amount)
                     cmd.approveCollateral(getBigNumber(100)),
                     cmd.depositCollateral(getBigNumber(100)),
-                    cmd.short(this.swapper, getBigNumber(500, 8), getBigNumber(200)),
+                    // Alice shorts by borrowing 500 assets shares for at least 50 shares collateral
+                    cmd.short(this.swapper, getBigNumber(400, 8), getBigNumber(50)),
                 ])
             ).to.be.revertedWith("KashiPair: user insolvent")
         })
@@ -553,7 +556,7 @@ describe("Lending Pair", function () {
                 cmd.as(this.bob).depositAsset(getBigNumber(1000, 8)),
                 cmd.approveCollateral(getBigNumber(100)),
                 cmd.depositCollateral(getBigNumber(100)),
-                cmd.short(this.swapper, getBigNumber(250, 8), getBigNumber(230)),
+                cmd.short(this.swapper, getBigNumber(250, 8), getBigNumber(176)),
             ])
         })
 
@@ -569,7 +572,7 @@ describe("Lending Pair", function () {
                 cmd.as(this.bob).depositAsset(getBigNumber(1000, 8)),
                 cmd.approveCollateral(getBigNumber(100)),
                 cmd.depositCollateral(getBigNumber(100)),
-                cmd.short(this.swapper, getBigNumber(250, 8), getBigNumber(230)),
+                cmd.short(this.swapper, getBigNumber(250, 8), getBigNumber(176)),
             ])
 
             const bobBal = await this.pairHelper.contract.balanceOf(this.bob.address)
@@ -588,7 +591,7 @@ describe("Lending Pair", function () {
                 cmd.as(this.bob).depositAsset(getBigNumber(1000, 8)),
                 cmd.approveCollateral(getBigNumber(100)),
                 cmd.depositCollateral(getBigNumber(100)),
-                cmd.short(this.swapper, getBigNumber(250, 8), getBigNumber(230)),
+                cmd.short(this.swapper, getBigNumber(250, 8), getBigNumber(176)),
             ])
 
             const collateralShare = await this.pairHelper.contract.userCollateralShare(this.alice.address)
@@ -759,18 +762,23 @@ describe("Lending Pair", function () {
 
         it("should allow closed liquidate", async function () {
             await this.pairHelper.run((cmd) => [
+                // Bob adds 290 asset amount (145 shares)
                 cmd.as(this.bob).approveAsset(getBigNumber(310, 8)),
                 cmd.as(this.bob).depositAsset(getBigNumber(290, 8)),
+                // Alice adds 100 collateral amount (76 shares)
                 cmd.approveCollateral(getBigNumber(100)),
                 cmd.depositCollateral(getBigNumber(100)),
+                // Alice borrows 75 asset amount
                 cmd.borrow(sansBorrowFee(getBigNumber(75, 8))),
                 cmd.accrue(),
+                // Change oracle to put Alice into insolvency
                 cmd.do(this.oracle.set, "11000000000000000000000000000"),
-                cmd.do(this.a.transfer, this.sushiSwapPair.address, getBigNumber(500)),
-                cmd.do(this.sushiSwapPair.sync),
+                //cmd.do(this.a.transfer, this.sushiSwapPair.address, getBigNumber(500)),
+                //cmd.do(this.sushiSwapPair.sync),
                 cmd.updateExchangeRate(),
             ])
 
+            // Bob liquidates Alice for 20 asset parts (approx 20 asset amount = 10 asset shares)
             await this.pairHelper.contract
                 .connect(this.bob)
                 .liquidate([this.alice.address], [getBigNumber(20, 8)], this.swapper.address, this.swapper.address, false)
