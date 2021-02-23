@@ -214,6 +214,11 @@ describe("KashiPair", function () {
                 .connect(this.bob)
                 .liquidate([this.alice.address], [collateral], this.swapper.address, this.swapper.address, false)
             })
+
+            it("alice: repay leftover", async function () {
+                const val = await this.pairHelper.contract.userBorrowPart(this.alice.address)
+                await this.pairHelper.contract.repay(this.alice.address, false, val)
+            })
         })
     })
 })

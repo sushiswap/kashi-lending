@@ -9,6 +9,7 @@ module.exports = class KashiPairStateMachine {
         this.fromBlock = 1
 
         // bookkeeping
+        this._ignoreTransfers = false
         this._bentoBalanceDeltas = []
         this._transfers = []
 
@@ -28,25 +29,9 @@ module.exports = class KashiPairStateMachine {
     }
 
     async init () {
-        const ABI = ["function balanceOf(address) external returns(uint256)"]
+        const ABI = ["function balanceOf(address) external view returns(uint256)"]
         this.assetToken = new ethers.Contract(await this.kashiPair.asset(), ABI, this.provider)
         this.collateralToken = new ethers.Contract(await this.kashiPair.collateral(), ABI, this.provider)
-    }
-
-    async _balanceOfAsset (addr) {
-        return this.assetToken.balanceOf(addr)
-    }
-
-    async _balanceOfCollateral (addr) {
-        return this.collateralToken.balanceOf(addr)
-    }
-
-    async _bentoAssetBalance (addr) {
-        return this.bentoBox.balanceOf(this.assetToken.address, addr)
-    }
-
-    async _bentoCollateralBalance (addr) {
-        return this.bentoBox.balanceOf(this.collateralToken.address, addr)
     }
 
     _getBentoBalance (token, addr) {
@@ -91,9 +76,14 @@ module.exports = class KashiPairStateMachine {
     }
 
     async onLogAccrue (accruedAmount, feeFraction, rate, utilization) {
-        //this.log({ accruedAmount, feeFraction, rate, utilization })
+        this.log({ accruedAmount, feeFraction, rate, utilization })
 
-        // xxx
+        if (this.totalBorrowBase.eq(0)) {
+            // no interest
+            return
+        }
+
+        // only track change on borrows and assets
         let expected = this.totalBorrowElastic.add(accruedAmount)
         this.totalBorrowElastic = expected
 
@@ -102,7 +92,7 @@ module.exports = class KashiPairStateMachine {
     }
 
     async onLogAddCollateral (from, to, share) {
-        //this.log({ from, to, share })
+        this.log({ from, to, share })
 
         let expected = (this.collateralShares[to] || ethers.BigNumber.from(0)).add(share)
         this.collateralShares[to] = expected
@@ -117,7 +107,7 @@ module.exports = class KashiPairStateMachine {
     }
 
     async onLogAddAsset (from, to, share, fraction) {
-        //this.log({ from, to, share, fraction })
+        this.log({ from, to, share, fraction })
 
         if (this.totalAssetBase.add(fraction).lt(1000)) {
             return
@@ -139,7 +129,7 @@ module.exports = class KashiPairStateMachine {
     }
 
     async onLogRemoveCollateral (from, to, share) {
-        //this.log({ from, to, share })
+        this.log({ from, to, share })
 
         let expected = (this.collateralShares[from] || ethers.BigNumber.from(0)).sub(share)
         this.collateralShares[from] = expected
@@ -152,7 +142,7 @@ module.exports = class KashiPairStateMachine {
     }
 
     async onLogRemoveAsset (from, to, share, fraction) {
-        //this.log({ from, to, share, fraction })
+        this.log({ from, to, share, fraction })
 
         let expected = (this.assetBalances[from] || ethers.BigNumber.from(0)).sub(fraction)
         this.assetBalances[from] = expected
@@ -166,8 +156,8 @@ module.exports = class KashiPairStateMachine {
         await this._verifyBentoTransfer(this.assetToken.address, this.kashiPair.address, to, share)
     }
 
-    async onLogBorrow(from, to, amount, feeAmount, part) {
-        //this.log({ from, to, amount, feeAmount, part })
+    async onLogBorrow (from, to, amount, feeAmount, part) {
+        this.log({ from, to, amount, feeAmount, part })
 
         let expected = (this.borrowParts[from] || ethers.BigNumber.from(0)).add(part)
         this.borrowParts[from] = expected
@@ -190,8 +180,8 @@ module.exports = class KashiPairStateMachine {
         await this._verifyBentoTransfer(this.assetToken.address, this.kashiPair.address, to, share)
     }
 
-    async onLogRepay(from, to, amount, part) {
-        //this.log({ from, to, amount, part })
+    async onLogRepay (from, to, amount, part) {
+        this.log({ from, to, amount, part })
 
         let expected = (this.borrowParts[to] || ethers.BigNumber.from(0)).sub(part)
         this.borrowParts[to] = expected
@@ -220,13 +210,15 @@ module.exports = class KashiPairStateMachine {
     }
 
     async onLogWithdrawFees (receiver, feesEarned) {
-        // this.log({ receiver, feesEarned })
+        this.log({ receiver, feesEarned })
         let expected = (this.assetBalances[receiver] || ethers.BigNumber.from(0)).add(feesEarned)
         this.assetBalances[receiver] = expected
     }
 
     log (...args) {
-        console.log(this.constructor.name, ...args)
+        if (process.env.DEBUG) {
+            console.log(this.constructor.name, ...args)
+        }
     }
 
     async verify () {
@@ -242,6 +234,8 @@ module.exports = class KashiPairStateMachine {
                 }
         }
         this._ignoreTransfers = false
+        this._bentoBalanceDeltas = []
+        this._transfers = []
 
         expect(this.totalCollateralShare, "total collateral").to.be.equal(await this.kashiPair.totalCollateralShare())
         expect(this.totalAssetBase, "asset base").to.be.equal((await this.kashiPair.totalAsset()).base)
@@ -268,10 +262,14 @@ module.exports = class KashiPairStateMachine {
             }
         }
 
-        let expected = this.totalAssetElastic
         // xxx this can also be more (can be skimmed)
-        expect(expected).to.be.at.most(await this.bentoBox.balanceOf(this.assetToken.address, this.kashiPair.address))
-        //this.log(expected, await this.bentoBox.balanceOf(this.assetToken.address, this.kashiPair.address))
+        expect(this.totalAssetElastic).to.be.at.most(await this.bentoBox.balanceOf(this.assetToken.address, this.kashiPair.address))
+
+        this.log({ totalCollateralShare: this.totalCollateralShare.toString() })
+        this.log({ borrowBase: this.totalBorrowBase.toString(), borrowRepay: this.totalBorrowElastic.toString() })
+        this.log({ assetBase: this.totalAssetBase.toString(), assetHeld: this.totalAssetElastic.toString() })
+
+        expect(this.totalBorrowElastic, "totalBorrow.elastic must be >= totalBorrow.base").to.be.at.least(this.totalBorrowBase)
     }
 
     async drainEvents () {
@@ -300,11 +298,11 @@ module.exports = class KashiPairStateMachine {
             const event = contract.interface.parseLog(log)
             const handler = `on${event.name}`
 
-            // this.log(Number(log.blockNumber), event.name)
             if (typeof this[handler] !== "function") {
                 this.log(`${event.name} not handled`)
                 continue
             }
+            this.log(Number(log.blockNumber), event.name)
 
             await this[handler](...event.args)
         }
