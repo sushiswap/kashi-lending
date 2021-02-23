@@ -51,7 +51,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
 
     // Immutables (for MasterContract and all clones)
     IBentoBoxV1 public immutable bentoBox;
-    address public immutable masterContract;
+    KashiPair public immutable masterContract;
 
     // MasterContract variables
     address public feeTo;
@@ -134,7 +134,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
     /// @notice The constructor is only used for the initial master contract. Subsequent clones are initialised via `init`.
     constructor(IBentoBoxV1 bentoBox_) public {
         bentoBox = bentoBox_;
-        masterContract = address(this);
+        masterContract = this;
 
         feeTo = msg.sender;
 
@@ -171,8 +171,9 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
         }
         _accrueInfo.lastBlockAccrued = uint64(block.number);
 
-        Rebase memory _totalAsset = totalAsset;
-        if (_totalAsset.base == 0) {
+        Rebase memory _totalBorrow = totalBorrow;
+        if (_totalBorrow.base == 0) {
+            // If there are no borrows, reset the interest rate
             if (_accrueInfo.interestPerBlock != STARTING_INTEREST_PER_BLOCK) {
                 _accrueInfo.interestPerBlock = STARTING_INTEREST_PER_BLOCK;
                 emit LogAccrue(0, 0, STARTING_INTEREST_PER_BLOCK, 0);
@@ -183,21 +184,21 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
 
         uint256 extraAmount = 0;
         uint256 feeFraction = 0;
-        uint256 totalAssetAmount = bentoBox.toAmount(asset, _totalAsset.elastic, false);
-        Rebase memory _totalBorrow = totalBorrow;
-        if (_totalBorrow.elastic > 0) {
-            // Accrue interest
-            extraAmount = uint256(_totalBorrow.elastic).mul(_accrueInfo.interestPerBlock).mul(blocks) / 1e18;
-            uint256 feeAmount = extraAmount.mul(PROTOCOL_FEE) / PROTOCOL_FEE_DIVISOR; // % of interest paid goes to fee
-            _totalBorrow.elastic = _totalBorrow.elastic.add(extraAmount.to128());
-            feeFraction = feeAmount.mul(_totalAsset.base) / totalAssetAmount.add(_totalBorrow.elastic).sub(feeAmount);
-            _accrueInfo.feesEarnedFraction = _accrueInfo.feesEarnedFraction.add(feeFraction.to128());
-            _totalAsset.base = _totalAsset.base.add(feeFraction.to128());
-            totalBorrow = _totalBorrow;
-        }
+        Rebase memory _totalAsset = totalAsset;
+        uint256 fullAssetAmount = bentoBox.toAmount(asset, _totalAsset.elastic, false).add(_totalBorrow.elastic);
+
+        // Accrue interest
+        extraAmount = uint256(_totalBorrow.elastic).mul(_accrueInfo.interestPerBlock).mul(blocks) / 1e18;
+        _totalBorrow.elastic = _totalBorrow.elastic.add(extraAmount.to128());
+
+        uint256 feeAmount = extraAmount.mul(PROTOCOL_FEE) / PROTOCOL_FEE_DIVISOR; // % of interest paid goes to fee
+        feeFraction = feeAmount.mul(_totalAsset.base) / fullAssetAmount.sub(feeAmount);
+        _accrueInfo.feesEarnedFraction = _accrueInfo.feesEarnedFraction.add(feeFraction.to128());
+        totalAsset.base = _totalAsset.base.add(feeFraction.to128());
+        totalBorrow = _totalBorrow;
 
         // Update interest rate
-        uint256 utilization = uint256(_totalBorrow.elastic).mul(UTILIZATION_PRECISION) / totalAssetAmount.add(_totalBorrow.elastic);
+        uint256 utilization = uint256(_totalBorrow.elastic).mul(UTILIZATION_PRECISION) / fullAssetAmount;
         if (utilization < MINIMUM_TARGET_UTILIZATION) {
             uint256 underFactor = MINIMUM_TARGET_UTILIZATION.sub(utilization).mul(FACTOR_PRECISION) / MINIMUM_TARGET_UTILIZATION;
             uint256 scale = INTEREST_ELASTICITY.add(underFactor.mul(underFactor).mul(blocks));
@@ -374,7 +375,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
         balanceOf[msg.sender] = balanceOf[msg.sender].sub(fraction);
         _totalAsset.elastic = _totalAsset.elastic.sub(share.to128());
         _totalAsset.base = _totalAsset.base.sub(fraction.to128());
-        require(_totalAsset.base >= 1000 || _totalAsset.base == 0, "Kashi: below minimum");
+        require(_totalAsset.base >= 1000, "Kashi: below minimum");
         totalAsset = _totalAsset;
         emit LogRemoveAsset(msg.sender, to, share, fraction);
         bentoBox.transfer(asset, address(this), to, share);
@@ -399,7 +400,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
 
         share = bentoBox.toShare(asset, amount, false);
         Rebase memory _totalAsset = totalAsset;
-        require(_totalAsset.base >= 1000 || _totalAsset.base == 0, "Kashi: below minimum");
+        require(_totalAsset.base >= 1000, "Kashi: below minimum");
         _totalAsset.elastic = _totalAsset.elastic.sub(share.to128());
         totalAsset = _totalAsset;
         bentoBox.transfer(asset, address(this), to, share);
@@ -696,7 +697,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
 
         if (!open) {
             // Closed liquidation using a pre-approved swapper for the benefit of the LPs
-            require(KashiPair(masterContract).swappers(swapper), "KashiPair: Invalid swapper");
+            require(masterContract.swappers(swapper), "KashiPair: Invalid swapper");
 
             // Swaps the users' collateral for the borrowed asset
             bentoBox.transfer(collateral, address(this), address(swapper), allCollateralShare);
@@ -707,7 +708,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
             uint256 feeShare = extraShare.mul(PROTOCOL_FEE) / PROTOCOL_FEE_DIVISOR; // % of profit goes to fee
             // solhint-disable-next-line reentrancy
             totalAsset.elastic = totalAsset.elastic.add(extraShare.sub(feeShare).to128());
-            bentoBox.transfer(asset, address(this), KashiPair(masterContract).feeTo(), feeShare);
+            bentoBox.transfer(asset, address(this), masterContract.feeTo(), feeShare);
             emit LogAddAsset(address(swapper), address(this), extraShare.sub(feeShare), 0);
         } else {
             // Swap using a swapper freely chosen by the caller
@@ -726,7 +727,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
     /// @notice Withdraws the fees accumulated.
     function withdrawFees() public {
         accrue();
-        address _feeTo = KashiPair(masterContract).feeTo();
+        address _feeTo = masterContract.feeTo();
         uint256 _feesEarnedFraction = accrueInfo.feesEarnedFraction;
         balanceOf[_feeTo] = balanceOf[_feeTo].add(_feesEarnedFraction);
         accrueInfo.feesEarnedFraction = 0;
