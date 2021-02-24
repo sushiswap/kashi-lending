@@ -681,7 +681,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
                 userCollateralShare[user] = userCollateralShare[user].sub(collateralShare);
                 userBorrowPart[user] = userBorrowPart[user].sub(borrowPart);
                 emit LogRemoveCollateral(user, swapper == ISwapper(0) ? to : address(swapper), collateralShare);
-                emit LogRepay(!open ? address(this) : msg.sender, user, borrowAmount, borrowPart);
+                emit LogRepay(swapper == ISwapper(0) ? msg.sender : address(swapper), user, borrowAmount, borrowPart);
 
                 // Keep totals
                 allCollateralShare = allCollateralShare.add(collateralShare);
