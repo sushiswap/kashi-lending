@@ -126,6 +126,11 @@ module.exports = class KashiPairStateMachine {
         if (!skim) {
             await this._verifyBentoTransfer(this.assetToken.address, from, this.kashiPair.address, share)
         }
+
+        if (to === this.kashiPair.address) {
+            // probably inside a liquidation
+            this._ignoreTransfers = true
+        }
     }
 
     async onLogRemoveCollateral (from, to, share) {
@@ -195,14 +200,8 @@ module.exports = class KashiPairStateMachine {
         const share = await this.bentoBox.toShare(this.assetToken.address, amount, true)
         const skim = from === this.bentoBox.address
 
-        if (from === this.kashiPair.address) {
-            // probably inside a liquidation
-            this._ignoreTransfers = true
-        } else {
-            // probably not inside a liquidation
-            expected = this.totalAssetElastic.add(share)
-            this.totalAssetElastic = expected
-        }
+        expected = this.totalAssetElastic.add(share)
+        this.totalAssetElastic = expected
 
         if (!skim) {
             await this._verifyBentoTransfer(this.assetToken.address, from, this.kashiPair.address, share)
