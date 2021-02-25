@@ -303,7 +303,13 @@ module.exports = class KashiPairStateMachine {
             }
             this.log(Number(log.blockNumber), event.name)
 
-            await this[handler](...event.args)
+            const tx = await this.provider.getTransaction(log.transactionHash)
+
+            if (tx.to !== this.kashiPair.address) {
+                this.log('warning: transfers are not checked due to other contract interactions')
+                this._ignoreTransfers = true
+            }
+            await this[handler](...event.args, tx)
         }
 
         await this.verify()

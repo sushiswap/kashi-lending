@@ -21,14 +21,6 @@ describe("KashiPair", function () {
             await cmd.addToken("assetToken", "Token B", "B", 8, this.RevertingERC20Mock)
             await cmd.addPair("sushiSwapPair", this.collateralToken, this.assetToken, 50000, 50000)
 
-            await cmd.deploy("strategy", "SimpleStrategyMock", this.bentoBox.address, this.collateralToken.address)
-
-            await this.bentoBox.setStrategy(this.collateralToken.address, this.strategy.address)
-            await advanceTime(1209600, ethers)
-            await this.bentoBox.setStrategy(this.collateralToken.address, this.strategy.address)
-            await this.bentoBox.setStrategyTargetPercentage(this.collateralToken.address, 20)
-
-            await cmd.deploy("erc20", "ERC20Mock", 10000000)
             await cmd.deploy("kashiPair", "KashiPair", this.bentoBox.address)
             await cmd.deploy("oracle", "OracleMock")
             await cmd.deploy("swapper", "SushiSwapSwapper", this.bentoBox.address, this.factory.address)
@@ -38,6 +30,21 @@ describe("KashiPair", function () {
             const oracleData = await this.oracle.getDataParameter()
 
             await cmd.addKashiPair("pairHelper", this.bentoBox, this.kashiPair, this.collateralToken, this.assetToken, this.oracle, oracleData)
+
+            await cmd.deploy(
+                "strategy",
+                "FlashloanStrategyMock",
+                this.bentoBox.address,
+                this.pairHelper.contract.address,
+                this.assetToken.address,
+                this.collateralToken.address,
+                this.swapper.address,
+                this.factory.address
+            )
+            await this.bentoBox.setStrategy(this.assetToken.address, this.strategy.address)
+            await advanceTime(1209600, ethers)
+            await this.bentoBox.setStrategy(this.assetToken.address, this.strategy.address)
+            await this.bentoBox.setStrategyTargetPercentage(this.assetToken.address, 20)
 
             // Two different ways to approve the kashiPair
             await setMasterContractApproval(this.bentoBox, this.alice, this.alice, this.alicePrivateKey, this.kashiPair.address, true)
@@ -218,6 +225,58 @@ describe("KashiPair", function () {
             it("alice: repay leftover", async function () {
                 const val = await this.pairHelper.contract.userBorrowPart(this.alice.address)
                 await this.pairHelper.contract.repay(this.alice.address, false, val)
+            })
+        })
+
+        describe("Harvesting strategy that uses flashloans to liquidate borrowers", function () {
+            const HARVEST_MAX_AMOUNT = 1
+
+            it("Approvals for deposit", async function () {
+                await this.collateralToken.approve(
+                    this.bentoBox.address, getBigNumber(DEPOSIT_AMOUNT, await this.collateralToken.decimals())
+                )
+                await this.assetToken.approve(
+                    this.bentoBox.address, getBigNumber(DEPOSIT_AMOUNT, await this.assetToken.decimals())
+                )
+            })
+
+            it("deposit", async function () {
+                await this.bentoBox.deposit(
+                    this.collateralToken.address,
+                    this.alice.address,
+                    this.alice.address,
+                    0,
+                    getBigNumber(DEPOSIT_AMOUNT, await this.collateralToken.decimals())
+                )
+                await this.bentoBox.deposit(
+                    this.assetToken.address,
+                    this.alice.address,
+                    this.alice.address,
+                    0,
+                    getBigNumber(DEPOSIT_AMOUNT, await this.assetToken.decimals())
+                )
+            })
+
+            it("add collateral", async function () {
+                await this.pairHelper.contract.addCollateral(
+                    this.alice.address, false, getBigNumber(DEPOSIT_AMOUNT, await this.collateralToken.decimals())
+                )
+            })
+
+            it("borrow", async function () {
+                await this.pairHelper.contract.borrow(this.alice.address, getBigNumber(DEPOSIT_AMOUNT / 4, await this.assetToken.decimals()))
+            })
+
+            it("modify exchange rate", async function () {
+                await this.oracle.set(getBigNumber(20, 28))
+            })
+
+            it("whitelist kashiPair", async function () {
+                await this.bentoBox.whitelistMasterContract(this.kashiPair.address, true)
+            })
+
+            it("harvest", async function () {
+                await this.bentoBox.harvest(this.assetToken.address, true, HARVEST_MAX_AMOUNT)
             })
         })
     })
