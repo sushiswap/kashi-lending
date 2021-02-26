@@ -2,7 +2,7 @@ const { ethers } = require("hardhat")
 const { expect } = require("chai")
 
 module.exports = class KashiPairStateMachine {
-    constructor ({ kashiPair, bentoBox }) {
+    constructor({ kashiPair, bentoBox }) {
         this.provider = kashiPair.provider
         this.kashiPair = kashiPair
         this.bentoBox = bentoBox
@@ -30,30 +30,30 @@ module.exports = class KashiPairStateMachine {
         this.bentoTotalsElastic = {}
     }
 
-    async init () {
+    async init() {
         const ABI = ["function balanceOf(address) external view returns(uint256)"]
         this.assetToken = new ethers.Contract(await this.kashiPair.asset(), ABI, this.provider)
         this.collateralToken = new ethers.Contract(await this.kashiPair.collateral(), ABI, this.provider)
     }
 
-    _getBentoBalance (token, addr) {
+    _getBentoBalance(token, addr) {
         const bag = this.bentoBalances[token]
         return bag && bag[addr] ? bag[addr] : ethers.BigNumber.from(0)
     }
 
-    _setBentoBalance (token, addr, val) {
+    _setBentoBalance(token, addr, val) {
         const bag = this.bentoBalances[token] || {}
         bag[addr] = val
         this.bentoBalances[token] = bag
     }
 
-    async toShare (tokenAddr, amount, roundUp) {
+    async toShare(tokenAddr, amount, roundUp) {
         const base = this.bentoTotalsBase[tokenAddr]
         const elastic = this.bentoTotalsElastic[tokenAddr]
         let share
 
         if (elastic.eq(0)) {
-          share = amount
+            share = amount
         } else {
             share = amount.mul(base).div(elastic)
             if (roundUp && share.mul(elastic).div(base).lt(amount)) {
@@ -64,12 +64,12 @@ module.exports = class KashiPairStateMachine {
         return share
     }
 
-    async _verifyBentoTransfer (token, from, to, share) {
+    async _verifyBentoTransfer(token, from, to, share) {
         this._bentoBalanceDeltas.push({ token, from, to, share })
     }
 
     // bentoBox
-    async onLogDeposit (token, from, to, amount, share) {
+    async onLogDeposit(token, from, to, amount, share) {
         this._transfers.push({ token, from, to, share })
         this._bentoBalanceDeltas.push({ token, from, to, share })
 
@@ -83,7 +83,7 @@ module.exports = class KashiPairStateMachine {
     }
 
     // bentoBox
-    async onLogWithdraw (token, from, to, amount, share) {
+    async onLogWithdraw(token, from, to, amount, share) {
         let expected = this._getBentoBalance(token, from).sub(share)
         this._setBentoBalance(token, from, expected)
 
@@ -94,7 +94,7 @@ module.exports = class KashiPairStateMachine {
     }
 
     // bentoBox
-    async onLogTransfer (token, from, to, share) {
+    async onLogTransfer(token, from, to, share) {
         this._transfers.push({ token, from, to, share })
 
         let expected = this._getBentoBalance(token, from).sub(share)
@@ -105,24 +105,24 @@ module.exports = class KashiPairStateMachine {
     }
 
     // bentoBox
-    async onLogFlashLoan (borrower, token, amount, feeAmount, receiver) {
+    async onLogFlashLoan(borrower, token, amount, feeAmount, receiver) {
         const elastic = this.bentoTotalsElastic[token] || ethers.BigNumber.from(0)
         this.bentoTotalsElastic[token] = elastic.add(feeAmount)
     }
 
     // bentoBox
-    async onLogStrategyProfit (token, amount) {
+    async onLogStrategyProfit(token, amount) {
         const elastic = this.bentoTotalsElastic[token] || ethers.BigNumber.from(0)
         this.bentoTotalsElastic[token] = elastic.add(amount)
     }
 
     // bentoBox
-    async onLogStrategyLoss (token, amount) {
+    async onLogStrategyLoss(token, amount) {
         const elastic = this.bentoTotalsElastic[token] || ethers.BigNumber.from(0)
         this.bentoTotalsElastic[token] = elastic.sub(amount)
     }
 
-    async onLogAccrue (accruedAmount, feeFraction, rate, utilization) {
+    async onLogAccrue(accruedAmount, feeFraction, rate, utilization) {
         this.log({ accruedAmount, feeFraction, rate, utilization })
 
         if (this.totalBorrowBase.eq(0)) {
@@ -138,7 +138,7 @@ module.exports = class KashiPairStateMachine {
         this.totalAssetBase = expected
     }
 
-    async onLogAddCollateral (from, to, share) {
+    async onLogAddCollateral(from, to, share) {
         this.log({ from, to, share })
 
         let expected = (this.collateralShares[to] || ethers.BigNumber.from(0)).add(share)
@@ -153,7 +153,7 @@ module.exports = class KashiPairStateMachine {
         }
     }
 
-    async onLogAddAsset (from, to, share, fraction) {
+    async onLogAddAsset(from, to, share, fraction) {
         this.log({ from, to, share, fraction })
 
         if (this.totalAssetBase.add(fraction).lt(1000)) {
@@ -180,7 +180,7 @@ module.exports = class KashiPairStateMachine {
         }
     }
 
-    async onLogRemoveCollateral (from, to, share) {
+    async onLogRemoveCollateral(from, to, share) {
         this.log({ from, to, share })
 
         let expected = (this.collateralShares[from] || ethers.BigNumber.from(0)).sub(share)
@@ -193,7 +193,7 @@ module.exports = class KashiPairStateMachine {
         await this._verifyBentoTransfer(this.collateralToken.address, this.kashiPair.address, to, share)
     }
 
-    async onLogRemoveAsset (from, to, share, fraction) {
+    async onLogRemoveAsset(from, to, share, fraction) {
         this.log({ from, to, share, fraction })
 
         let expected = (this.assetBalances[from] || ethers.BigNumber.from(0)).sub(fraction)
@@ -208,7 +208,7 @@ module.exports = class KashiPairStateMachine {
         await this._verifyBentoTransfer(this.assetToken.address, this.kashiPair.address, to, share)
     }
 
-    async onLogBorrow (from, to, amount, feeAmount, part) {
+    async onLogBorrow(from, to, amount, feeAmount, part) {
         this.log({ from, to, amount, feeAmount, part })
 
         let expected = (this.borrowParts[from] || ethers.BigNumber.from(0)).add(part)
@@ -232,7 +232,7 @@ module.exports = class KashiPairStateMachine {
         await this._verifyBentoTransfer(this.assetToken.address, this.kashiPair.address, to, share)
     }
 
-    async onLogRepay (from, to, amount, part) {
+    async onLogRepay(from, to, amount, part) {
         this.log({ from, to, amount, part })
 
         let expected = (this.borrowParts[to] || ethers.BigNumber.from(0)).sub(part)
@@ -255,29 +255,29 @@ module.exports = class KashiPairStateMachine {
         }
     }
 
-    async onLogWithdrawFees (receiver, feesEarned) {
+    async onLogWithdrawFees(receiver, feesEarned) {
         this.log({ receiver, feesEarned })
         let expected = (this.assetBalances[receiver] || ethers.BigNumber.from(0)).add(feesEarned)
         this.assetBalances[receiver] = expected
     }
 
-    log (...args) {
+    log(...args) {
         if (process.env.DEBUG) {
             console.log(this.constructor.name, ...args)
         }
     }
 
-    async verify () {
+    async verify() {
         if (!this._ignoreTransfers) {
             // if we are inside a closed liquidation, then it is not possible to predict the asset flow
             expect(this._bentoBalanceDeltas.length, "should be equal to transfers").to.be.equal(this._transfers.length)
 
-                while (this._transfers.length) {
-                    const a = this._transfers.pop()
-                    const b = this._bentoBalanceDeltas.pop()
+            while (this._transfers.length) {
+                const a = this._transfers.pop()
+                const b = this._bentoBalanceDeltas.pop()
 
-                    expect(a).to.be.deep.equal(b)
-                }
+                expect(a).to.be.deep.equal(b)
+            }
         }
         this._ignoreTransfers = false
         this._bentoBalanceDeltas = []
@@ -303,8 +303,7 @@ module.exports = class KashiPairStateMachine {
 
         for (const tokenAddr in this.bentoBalances) {
             for (const user in this.bentoBalances[tokenAddr]) {
-                expect(this._getBentoBalance(tokenAddr, user), "bento balance")
-                    .to.be.equal(await this.bentoBox.balanceOf(tokenAddr, user))
+                expect(this._getBentoBalance(tokenAddr, user), "bento balance").to.be.equal(await this.bentoBox.balanceOf(tokenAddr, user))
             }
         }
 
@@ -327,7 +326,7 @@ module.exports = class KashiPairStateMachine {
         expect(this.totalBorrowElastic, "totalBorrow.elastic must be >= totalBorrow.base").to.be.at.least(this.totalBorrowBase)
     }
 
-    async drainEvents () {
+    async drainEvents() {
         const contracts = {
             [this.bentoBox.address.toLowerCase()]: this.bentoBox,
             [this.kashiPair.address.toLowerCase()]: this.kashiPair,

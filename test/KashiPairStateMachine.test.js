@@ -1,12 +1,5 @@
 const { ethers, deployments } = require("hardhat")
-const {
-    getBigNumber,
-    advanceBlock,
-    advanceTime,
-    setMasterContractApproval,
-    createFixture,
-    KashiPair,
-} = require("@sushiswap/hardhat-framework")
+const { getBigNumber, advanceBlock, advanceTime, setMasterContractApproval, createFixture, KashiPair } = require("@sushiswap/hardhat-framework")
 const KashiPairStateMachine = require("./KashiPairStateMachine.js")
 
 describe("KashiPair", function () {
@@ -60,12 +53,10 @@ describe("KashiPair", function () {
         })
 
         it("Setup state machine", async function () {
-            this.stateMachine = new KashiPairStateMachine(
-                {
-                    kashiPair: this.pairHelper.contract,
-                    bentoBox: this.bentoBox,
-                }
-            )
+            this.stateMachine = new KashiPairStateMachine({
+                kashiPair: this.pairHelper.contract,
+                bentoBox: this.bentoBox,
+            })
             await this.stateMachine.init()
         })
 
@@ -97,7 +88,11 @@ describe("KashiPair", function () {
 
         it("add asset & collateral", async function () {
             await this.pairHelper.contract.addAsset(this.alice.address, false, getBigNumber(DEPOSIT_AMOUNT, await this.assetToken.decimals()))
-            await this.pairHelper.contract.addCollateral(this.alice.address, false, getBigNumber(DEPOSIT_AMOUNT, await this.collateralToken.decimals()))
+            await this.pairHelper.contract.addCollateral(
+                this.alice.address,
+                false,
+                getBigNumber(DEPOSIT_AMOUNT, await this.collateralToken.decimals())
+            )
         })
 
         it("update exchange rate", async function () {
@@ -126,12 +121,8 @@ describe("KashiPair", function () {
 
         describe("skim", function () {
             it("Approvals for deposit", async function () {
-                await this.collateralToken.approve(
-                    this.bentoBox.address, getBigNumber(DEPOSIT_AMOUNT, await this.collateralToken.decimals())
-                )
-                await this.assetToken.approve(
-                    this.bentoBox.address, getBigNumber(DEPOSIT_AMOUNT, await this.assetToken.decimals())
-                )
+                await this.collateralToken.approve(this.bentoBox.address, getBigNumber(DEPOSIT_AMOUNT, await this.collateralToken.decimals()))
+                await this.assetToken.approve(this.bentoBox.address, getBigNumber(DEPOSIT_AMOUNT, await this.assetToken.decimals()))
             })
 
             it("deposit", async function () {
@@ -153,13 +144,17 @@ describe("KashiPair", function () {
 
             it("add asset", async function () {
                 await this.pairHelper.contract.addAsset(
-                    this.alice.address, true, getBigNumber(DEPOSIT_AMOUNT, await this.assetToken.decimals()).sub(2)
+                    this.alice.address,
+                    true,
+                    getBigNumber(DEPOSIT_AMOUNT, await this.assetToken.decimals()).sub(2)
                 )
             })
 
             it("add collateral", async function () {
                 await this.pairHelper.contract.addCollateral(
-                    this.alice.address, true, getBigNumber(DEPOSIT_AMOUNT, await this.collateralToken.decimals())
+                    this.alice.address,
+                    true,
+                    getBigNumber(DEPOSIT_AMOUNT, await this.collateralToken.decimals())
                 )
             })
 
@@ -198,28 +193,32 @@ describe("KashiPair", function () {
             })
 
             it("deposit collateral", async function () {
-                await this.assetToken.connect(this.bob).approve(this.bentoBox.address, getBigNumber(DEPOSIT_AMOUNT, await this.assetToken.decimals()))
-                await this.bentoBox.connect(this.bob).deposit(
-                    this.assetToken.address,
-                    this.bob.address,
-                    this.bob.address,
-                    0,
-                    getBigNumber(DEPOSIT_AMOUNT, await this.assetToken.decimals())
-                )
+                await this.assetToken
+                    .connect(this.bob)
+                    .approve(this.bentoBox.address, getBigNumber(DEPOSIT_AMOUNT, await this.assetToken.decimals()))
+                await this.bentoBox
+                    .connect(this.bob)
+                    .deposit(
+                        this.assetToken.address,
+                        this.bob.address,
+                        this.bob.address,
+                        0,
+                        getBigNumber(DEPOSIT_AMOUNT, await this.assetToken.decimals())
+                    )
             })
 
             it("open liquidation", async function () {
                 const collateral = (await this.pairHelper.contract.userBorrowPart(this.alice.address)).div(2)
                 await this.pairHelper.contract
-                .connect(this.bob)
-                .liquidate([this.alice.address], [collateral], this.bob.address, "0x0000000000000000000000000000000000000000", true)
+                    .connect(this.bob)
+                    .liquidate([this.alice.address], [collateral], this.bob.address, "0x0000000000000000000000000000000000000000", true)
             })
 
             it("closed liquidation", async function () {
                 const collateral = (await this.pairHelper.contract.userBorrowPart(this.alice.address)).div(2)
                 await this.pairHelper.contract
-                .connect(this.bob)
-                .liquidate([this.alice.address], [collateral], this.swapper.address, this.swapper.address, false)
+                    .connect(this.bob)
+                    .liquidate([this.alice.address], [collateral], this.swapper.address, this.swapper.address, false)
             })
 
             it("alice: repay leftover", async function () {
@@ -232,12 +231,8 @@ describe("KashiPair", function () {
             const HARVEST_MAX_AMOUNT = 1
 
             it("Approvals for deposit", async function () {
-                await this.collateralToken.approve(
-                    this.bentoBox.address, getBigNumber(DEPOSIT_AMOUNT, await this.collateralToken.decimals())
-                )
-                await this.assetToken.approve(
-                    this.bentoBox.address, getBigNumber(DEPOSIT_AMOUNT, await this.assetToken.decimals())
-                )
+                await this.collateralToken.approve(this.bentoBox.address, getBigNumber(DEPOSIT_AMOUNT, await this.collateralToken.decimals()))
+                await this.assetToken.approve(this.bentoBox.address, getBigNumber(DEPOSIT_AMOUNT, await this.assetToken.decimals()))
             })
 
             it("deposit", async function () {
@@ -259,7 +254,9 @@ describe("KashiPair", function () {
 
             it("add collateral", async function () {
                 await this.pairHelper.contract.addCollateral(
-                    this.alice.address, false, getBigNumber(DEPOSIT_AMOUNT, await this.collateralToken.decimals())
+                    this.alice.address,
+                    false,
+                    getBigNumber(DEPOSIT_AMOUNT, await this.collateralToken.decimals())
                 )
             })
 

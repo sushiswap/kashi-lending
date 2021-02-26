@@ -12,6 +12,7 @@ const {
     createFixture,
     ADDRESS_ZERO,
     KashiPair,
+    advanceTimeAndBlock,
 } = require("@sushiswap/hardhat-framework")
 const { defaultAbiCoder } = require("ethers/lib/utils")
 
@@ -44,7 +45,7 @@ async function debugInfo(thisObject) {
     console.log("Alice Solvent", (await thisObject.pairHelper.contract.isSolvent(thisObject.alice.address, false)).toString())
 }
 
-describe("Lending Pair", function () {
+describe("KashiPair Basic", function () {
     before(async function () {
         fixture = await createFixture(deployments, this, async (cmd) => {
             await cmd.deploy("weth9", "WETH9Mock")
@@ -159,14 +160,14 @@ describe("Lending Pair", function () {
             borrowPartLeft = await this.pairHelper.contract.userBorrowPart(this.alice.address)
 
             // run for a while with 0 utilization
-            let rate1 = (await this.pairHelper.contract.accrueInfo()).interestPerBlock
+            let rate1 = (await this.pairHelper.contract.accrueInfo()).interestPerSecond
             for (let i = 0; i < 20; i++) {
                 await advanceBlock(ethers)
             }
             await this.pairHelper.contract.accrue()
 
             // check results
-            let rate2 = (await this.pairHelper.contract.accrueInfo()).interestPerBlock
+            let rate2 = (await this.pairHelper.contract.accrueInfo()).interestPerSecond
             assert(rate2.lt(rate1), "rate has not adjusted down with low utilization")
 
             // then increase utilization to 90%
@@ -176,14 +177,14 @@ describe("Lending Pair", function () {
             ])
 
             // and run a while again
-            rate1 = (await this.pairHelper.contract.accrueInfo()).interestPerBlock
+            rate1 = (await this.pairHelper.contract.accrueInfo()).interestPerSecond
             for (let i = 0; i < 20; i++) {
                 await advanceBlock(ethers)
             }
 
             // check results
             await this.pairHelper.contract.accrue()
-            rate2 = (await this.pairHelper.contract.accrueInfo()).interestPerBlock
+            rate2 = (await this.pairHelper.contract.accrueInfo()).interestPerSecond
             expect(rate2).to.be.gt(rate1)
         })
 
@@ -199,7 +200,7 @@ describe("Lending Pair", function () {
             let borrowPartLeft = await this.pairHelper.contract.userBorrowPart(this.alice.address)
             let balanceLeft = await this.pairHelper.contract.balanceOf(this.alice.address)
             await this.pairHelper.run((cmd) => [cmd.repay(borrowPartLeft), cmd.do(this.pairHelper.contract.accrue)])
-            expect((await this.pairHelper.contract.accrueInfo()).interestPerBlock).to.be.equal(4566210045)
+            expect((await this.pairHelper.contract.accrueInfo()).interestPerSecond).to.be.equal(68493150675)
         })
 
         it("should lock interest rate at minimum", async function () {
@@ -212,16 +213,12 @@ describe("Lending Pair", function () {
                 cmd.do(this.pairHelper.contract.borrow, this.alice.address, 1),
                 cmd.do(this.pairHelper.contract.accrue),
             ])
-            for (let i = 0; i < 2000; i++) {
-                await advanceBlock(ethers)
-            }
+            await advanceTimeAndBlock(30000, ethers)
             await this.pairHelper.contract.accrue()
-            for (let i = 0; i < 2000; i++) {
-                await advanceBlock(ethers)
-            }
+            await advanceTimeAndBlock(30000, ethers)
             await this.pairHelper.contract.accrue()
 
-            expect((await this.pairHelper.contract.accrueInfo()).interestPerBlock).to.be.equal(1141552511)
+            expect((await this.pairHelper.contract.accrueInfo()).interestPerSecond).to.be.equal(17123287665)
         })
 
         it("should lock interest rate at maximum", async function () {
@@ -231,20 +228,15 @@ describe("Lending Pair", function () {
                 cmd.approveCollateral(getBigNumber(300)),
                 cmd.depositCollateral(getBigNumber(300)),
                 cmd.do(this.pairHelper.contract.borrow, this.alice.address, sansBorrowFee(getBigNumber(100, 8))),
-                cmd.do(this.pairHelper.contract.setInterestPerBlock, 4400000000000),
                 cmd.do(this.pairHelper.contract.accrue),
             ])
             await this.pairHelper.contract.accrue()
-            for (let i = 0; i < 2000; i++) {
-                await advanceBlock(ethers)
-            }
+            await advanceTimeAndBlock(30000, ethers)
             await this.pairHelper.contract.accrue()
-            for (let i = 0; i < 2000; i++) {
-                await advanceBlock(ethers)
-            }
+            await advanceTimeAndBlock(3000000, ethers)
             await this.pairHelper.contract.accrue()
 
-            expect((await this.pairHelper.contract.accrueInfo()).interestPerBlock).to.be.equal(4566210045000)
+            expect((await this.pairHelper.contract.accrueInfo()).interestPerSecond).to.be.equal(68493150675000)
         })
 
         it("should emit Accrue if on target utilization", async function () {
