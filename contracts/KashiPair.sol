@@ -44,7 +44,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
     event LogAddAsset(address indexed from, address indexed to, uint256 share, uint256 fraction);
     event LogRemoveCollateral(address indexed from, address indexed to, uint256 share);
     event LogRemoveAsset(address indexed from, address indexed to, uint256 share, uint256 fraction);
-    event LogBorrow(address indexed from, address indexed to, uint256 amount, uint256 part);
+    event LogBorrow(address indexed from, address indexed to, uint256 amount, uint256 feeAmount, uint256 part);
     event LogRepay(address indexed from, address indexed to, uint256 amount, uint256 part);
     event LogFeeTo(address indexed newFeeTo);
     event LogWithdrawFees(address indexed feeTo, uint256 feesEarnedFraction);
@@ -397,7 +397,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
 
         (totalBorrow, part) = totalBorrow.add(amount.add(feeAmount), true);
         userBorrowPart[msg.sender] = userBorrowPart[msg.sender].add(part);
-        emit LogBorrow(msg.sender, to, amount.add(feeAmount), part);
+        emit LogBorrow(msg.sender, to, amount, feeAmount, part);
 
         share = bentoBox.toShare(asset, amount, false);
         Rebase memory _totalAsset = totalAsset;
@@ -681,8 +681,8 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
 
                 userCollateralShare[user] = userCollateralShare[user].sub(collateralShare);
                 userBorrowPart[user] = userBorrowPart[user].sub(borrowPart);
-                emit LogRemoveCollateral(user, address(this), collateralShare);
-                emit LogRepay(address(this), user, borrowAmount, borrowPart);
+                emit LogRemoveCollateral(user, swapper == ISwapper(0) ? to : address(swapper), collateralShare);
+                emit LogRepay(swapper == ISwapper(0) ? msg.sender : address(swapper), user, borrowAmount, borrowPart);
 
                 // Keep totals
                 allCollateralShare = allCollateralShare.add(collateralShare);
@@ -716,7 +716,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
         } else {
             // Swap using a swapper freely chosen by the caller
             // Open (flash) liquidation: get proceeds first and provide the borrow after
-            bentoBox.transfer(collateral, address(this), swapper != ISwapper(0) ? address(swapper) : to, allCollateralShare);
+            bentoBox.transfer(collateral, address(this), swapper == ISwapper(0) ? to : address(swapper), allCollateralShare);
             if (swapper != ISwapper(0)) {
                 swapper.swap(collateral, asset, msg.sender, allBorrowShare, allCollateralShare);
             }
