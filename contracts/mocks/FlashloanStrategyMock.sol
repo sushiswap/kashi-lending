@@ -8,11 +8,12 @@ import "@sushiswap/core/contracts/uniswapv2/interfaces/IUniswapV2Pair.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringMath.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringERC20.sol";
 import "../KashiPair.sol";
+import "../KashiPairHelper.sol";
 import "../interfaces/ISwapper.sol";
 
 // solhint-disable not-rely-on-time
 
-contract FlashloanStrategyMock is IStrategy, IFlashBorrower {
+contract FlashloanStrategyMock is IStrategy, IFlashBorrower, KashiPairHelper {
     using BoringMath for uint256;
     using BoringERC20 for IERC20;
 
@@ -89,11 +90,11 @@ contract FlashloanStrategyMock is IStrategy, IFlashBorrower {
 
     // liquidate
     function onFlashLoan(
-        address sender,
+        address, /*sender*/
         IERC20 token,
         uint256 amount,
         uint256 fee,
-        bytes calldata data
+        bytes calldata /*data*/
     ) external override onlyBentoBox {
         require(token == assetToken);
 
@@ -109,7 +110,8 @@ contract FlashloanStrategyMock is IStrategy, IFlashBorrower {
         uint256 PREC = 1e5;
         uint256 targetBorrowPart = kashiPair.userBorrowPart(target);
         // round up
-        uint256 divisor = (kashiPair.getCollateralSharesForBorrowPart(targetBorrowPart) * PREC) / (kashiPair.userCollateralShare(target)) + 1;
+        uint256 divisor =
+            (KashiPairHelper.getCollateralSharesForBorrowPart(kashiPair, targetBorrowPart) * PREC) / (kashiPair.userCollateralShare(target)) + 1;
         // setup
         address[] memory users = new address[](1);
         uint256[] memory amounts = new uint256[](1);

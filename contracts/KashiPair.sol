@@ -751,17 +751,4 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
         feeTo = newFeeTo;
         emit LogFeeTo(newFeeTo);
     }
-
-    /// @notice Helper function to calculate the collateral shares that are needed for `borrowPart`,
-    /// taking the current exchange rate into account.
-    function getCollateralSharesForBorrowPart(uint256 borrowPart) public view returns (uint256) {
-        uint256 borrowAmount = totalBorrow.toElastic(borrowPart, false);
-
-        return bentoBox.toShare(
-            collateral,
-            borrowAmount.mul(LIQUIDATION_MULTIPLIER).mul(exchangeRate) /
-            (LIQUIDATION_MULTIPLIER_PRECISION * EXCHANGE_RATE_PRECISION),
-            false
-        );
-    }
 }
