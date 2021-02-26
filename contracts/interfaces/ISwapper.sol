@@ -12,9 +12,9 @@ interface ISwapper {
         IERC20 fromToken,
         IERC20 toToken,
         address recipient,
-        uint256 amountToMin,
+        uint256 shareToMin,
         uint256 shareFrom
-    ) external returns (uint256 extraAmount, uint256 shareTo);
+    ) external returns (uint256 extraShare, uint256 shareReturned);
 
     /// @notice Calculates the amount of token 'from' needed to complete the swap (amountFrom),
     /// this should be less than or equal to amountFromMax.

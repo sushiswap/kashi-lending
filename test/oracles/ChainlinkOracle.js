@@ -1,3 +1,4 @@
+const { network } = require("hardhat")
 const { expect } = require("chai")
 const { getBigNumber, createFixture, ADDRESS_ZERO } = require("@sushiswap/hardhat-framework")
 
@@ -25,7 +26,7 @@ describe("ChainLink Oracle", function () {
         expect(await this.oracle.symbol(this.oracleData)).to.equal("LINK")
     })
 
-    if (!hre.network.config.forking) {
+    if (!network.config.forking) {
         console.trace("*** chain forking not available, skipping tests ***")
         return
     }

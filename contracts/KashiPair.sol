@@ -39,19 +39,19 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
     using BoringERC20 for IERC20;
 
     event LogExchangeRate(uint256 rate);
-    event LogAccrue(uint256 accruedAmount, uint256 feeFraction, uint256 rate, uint256 utilization);
+    event LogAccrue(uint256 accruedAmount, uint256 feeFraction, uint64 rate, uint256 utilization);
     event LogAddCollateral(address indexed from, address indexed to, uint256 share);
     event LogAddAsset(address indexed from, address indexed to, uint256 share, uint256 fraction);
     event LogRemoveCollateral(address indexed from, address indexed to, uint256 share);
     event LogRemoveAsset(address indexed from, address indexed to, uint256 share, uint256 fraction);
-    event LogBorrow(address indexed from, address indexed to, uint256 amount, uint256 part);
+    event LogBorrow(address indexed from, address indexed to, uint256 amount, uint256 feeAmount, uint256 part);
     event LogRepay(address indexed from, address indexed to, uint256 amount, uint256 part);
     event LogFeeTo(address indexed newFeeTo);
     event LogWithdrawFees(address indexed feeTo, uint256 feesEarnedFraction);
 
     // Immutables (for MasterContract and all clones)
     IBentoBoxV1 public immutable bentoBox;
-    address public immutable masterContract;
+    KashiPair public immutable masterContract;
 
     // MasterContract variables
     address public feeTo;
@@ -79,8 +79,8 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
     uint256 public exchangeRate;
 
     struct AccrueInfo {
-        uint64 interestPerBlock;
-        uint64 lastBlockAccrued;
+        uint64 interestPerSecond;
+        uint64 lastAccrued;
         uint128 feesEarnedFraction;
     }
 
@@ -92,7 +92,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
     }
 
     function name() external view returns (string memory) {
-        return string(abi.encodePacked("Bento Med Risk ", collateral.safeName(), ">", asset.safeName(), "-", oracle.symbol(oracleData)));
+        return string(abi.encodePacked("Kashi Med Risk ", collateral.safeName(), ">", asset.safeName(), "-", oracle.symbol(oracleData)));
     }
 
     function decimals() external view returns (uint8) {
@@ -107,7 +107,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
     // Settings for the Medium Risk KashiPair
     uint256 private constant CLOSED_COLLATERIZATION_RATE = 75000; // 75%
     uint256 private constant OPEN_COLLATERIZATION_RATE = 77000; // 77%
-    uint256 private constant COLLATERIZATION_RATE_PRECISION = 1e5;
+    uint256 private constant COLLATERIZATION_RATE_PRECISION = 1e5; // Must be less than EXCHANGE_RATE_PRECISION (due to optimization in math)
     uint256 private constant MINIMUM_TARGET_UTILIZATION = 7e17; // 70%
     uint256 private constant MAXIMUM_TARGET_UTILIZATION = 8e17; // 80%
     uint256 private constant UTILIZATION_PRECISION = 1e18;
@@ -115,10 +115,10 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
     uint256 private constant FULL_UTILIZATION_MINUS_MAX = FULL_UTILIZATION - MAXIMUM_TARGET_UTILIZATION;
     uint256 private constant FACTOR_PRECISION = 1e18;
 
-    uint256 private constant STARTING_INTEREST_PER_BLOCK = 4566210045; // approx 1% APR
-    uint256 private constant MINIMUM_INTEREST_PER_BLOCK = 1141552511; // approx 0.25% APR
-    uint256 private constant MAXIMUM_INTEREST_PER_BLOCK = 4566210045000; // approx 1000% APR
-    uint256 private constant INTEREST_ELASTICITY = 2000e36; // Half or double in 2000 blocks (approx 8 hours)
+    uint64 private constant STARTING_INTEREST_PER_SECOND = 68493150675; // approx 1% APR
+    uint64 private constant MINIMUM_INTEREST_PER_SECOND = 17123287665; // approx 0.25% APR
+    uint64 private constant MAXIMUM_INTEREST_PER_SECOND = 68493150675000; // approx 1000% APR
+    uint256 private constant INTEREST_ELASTICITY = 28800e36; // Half or double in 28800 seconds (8 hours) if linear
 
     uint256 private constant EXCHANGE_RATE_PRECISION = 1e18;
 
@@ -134,10 +134,9 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
     /// @notice The constructor is only used for the initial master contract. Subsequent clones are initialised via `init`.
     constructor(IBentoBoxV1 bentoBox_) public {
         bentoBox = bentoBox_;
-        masterContract = address(this);
+        masterContract = this;
 
         feeTo = msg.sender;
-        emit LogFeeTo(msg.sender);
 
         // Not really an issue, but https://blog.trailofbits.com/2020/12/16/breaking-aave-upgradeability/
         collateral = IERC20(address(1)); // Just a dummy value for the Master Contract
@@ -148,10 +147,9 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
     function init(bytes calldata data) public payable override {
         require(address(collateral) == address(0), "KashiPair: already initialized");
         (collateral, asset, oracle, oracleData) = abi.decode(data, (IERC20, IERC20, IOracle, bytes));
+        require(address(collateral) != address(0), "KashiPair: bad pair");
 
-        accrueInfo.interestPerBlock = uint64(STARTING_INTEREST_PER_BLOCK); // 1% APR, with 1e18 being 100%
-        // can fail
-        updateExchangeRate();
+        accrueInfo.interestPerSecond = uint64(STARTING_INTEREST_PER_SECOND); // 1% APR, with 1e18 being 100%
     }
 
     /// @notice Helper function to get the abi encoded bytes for the `init` function.
@@ -167,18 +165,19 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
     /// @notice Accrues the interest on the borrowed tokens and handles the accumulation of fees.
     function accrue() public {
         AccrueInfo memory _accrueInfo = accrueInfo;
-        // Number of blocks since accrue was called
-        uint256 blocks = block.number - _accrueInfo.lastBlockAccrued;
-        if (blocks == 0) {
+        // Number of seconds since accrue was called
+        uint256 elapsedTime = block.timestamp - _accrueInfo.lastAccrued;
+        if (elapsedTime == 0) {
             return;
         }
-        _accrueInfo.lastBlockAccrued = uint64(block.number);
+        _accrueInfo.lastAccrued = uint64(block.timestamp);
 
-        Rebase memory _totalAsset = totalAsset;
-        if (_totalAsset.base == 0) {
-            if (_accrueInfo.interestPerBlock != STARTING_INTEREST_PER_BLOCK) {
-                _accrueInfo.interestPerBlock = uint64(STARTING_INTEREST_PER_BLOCK);
-                emit LogAccrue(0, 0, STARTING_INTEREST_PER_BLOCK, 0);
+        Rebase memory _totalBorrow = totalBorrow;
+        if (_totalBorrow.base == 0) {
+            // If there are no borrows, reset the interest rate
+            if (_accrueInfo.interestPerSecond != STARTING_INTEREST_PER_SECOND) {
+                _accrueInfo.interestPerSecond = STARTING_INTEREST_PER_SECOND;
+                emit LogAccrue(0, 0, STARTING_INTEREST_PER_SECOND, 0);
             }
             accrueInfo = _accrueInfo;
             return;
@@ -186,46 +185,40 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
 
         uint256 extraAmount = 0;
         uint256 feeFraction = 0;
-        uint256 totalAssetAmount = bentoBox.toAmount(asset, _totalAsset.elastic, false);
-        Rebase memory _totalBorrow = totalBorrow;
-        if (_totalBorrow.elastic > 0) {
-            // Accrue interest
-            extraAmount = uint256(_totalBorrow.elastic).mul(_accrueInfo.interestPerBlock).mul(blocks) / 1e18;
-            uint256 feeAmount = extraAmount.mul(PROTOCOL_FEE) / PROTOCOL_FEE_DIVISOR; // % of interest paid goes to fee
-            _totalBorrow.elastic = _totalBorrow.elastic.add(extraAmount.to128());
-            feeFraction = feeAmount.mul(_totalAsset.base) / totalAssetAmount.add(_totalBorrow.elastic).sub(feeAmount);
-            _accrueInfo.feesEarnedFraction = _accrueInfo.feesEarnedFraction.add(feeFraction.to128());
-            _totalAsset.base = _totalAsset.base.add(feeFraction.to128());
-            totalBorrow = _totalBorrow;
-        }
+        Rebase memory _totalAsset = totalAsset;
+        uint256 fullAssetAmount = bentoBox.toAmount(asset, _totalAsset.elastic, false).add(_totalBorrow.elastic);
+
+        // Accrue interest
+        extraAmount = uint256(_totalBorrow.elastic).mul(_accrueInfo.interestPerSecond).mul(elapsedTime) / 1e18;
+        _totalBorrow.elastic = _totalBorrow.elastic.add(extraAmount.to128());
+
+        uint256 feeAmount = extraAmount.mul(PROTOCOL_FEE) / PROTOCOL_FEE_DIVISOR; // % of interest paid goes to fee
+        feeFraction = feeAmount.mul(_totalAsset.base) / fullAssetAmount.sub(feeAmount);
+        _accrueInfo.feesEarnedFraction = _accrueInfo.feesEarnedFraction.add(feeFraction.to128());
+        totalAsset.base = _totalAsset.base.add(feeFraction.to128());
+        totalBorrow = _totalBorrow;
 
         // Update interest rate
-        uint256 utilization = uint256(_totalBorrow.elastic).mul(UTILIZATION_PRECISION) / totalAssetAmount.add(_totalBorrow.elastic);
-        uint256 newInterestPerBlock;
+        uint256 utilization = uint256(_totalBorrow.elastic).mul(UTILIZATION_PRECISION) / fullAssetAmount;
         if (utilization < MINIMUM_TARGET_UTILIZATION) {
             uint256 underFactor = MINIMUM_TARGET_UTILIZATION.sub(utilization).mul(FACTOR_PRECISION) / MINIMUM_TARGET_UTILIZATION;
-            uint256 scale = INTEREST_ELASTICITY.add(underFactor.mul(underFactor).mul(blocks));
-            newInterestPerBlock = uint256(_accrueInfo.interestPerBlock).mul(INTEREST_ELASTICITY) / scale;
+            uint256 scale = INTEREST_ELASTICITY.add(underFactor.mul(underFactor).mul(elapsedTime));
+            _accrueInfo.interestPerSecond = uint64(uint256(_accrueInfo.interestPerSecond).mul(INTEREST_ELASTICITY) / scale);
 
-            if (newInterestPerBlock < MINIMUM_INTEREST_PER_BLOCK) {
-                newInterestPerBlock = MINIMUM_INTEREST_PER_BLOCK; // 0.25% APR minimum
+            if (_accrueInfo.interestPerSecond < MINIMUM_INTEREST_PER_SECOND) {
+                _accrueInfo.interestPerSecond = MINIMUM_INTEREST_PER_SECOND; // 0.25% APR minimum
             }
         } else if (utilization > MAXIMUM_TARGET_UTILIZATION) {
             uint256 overFactor = utilization.sub(MAXIMUM_TARGET_UTILIZATION).mul(FACTOR_PRECISION) / FULL_UTILIZATION_MINUS_MAX;
-            uint256 scale = INTEREST_ELASTICITY.add(overFactor.mul(overFactor).mul(blocks));
-            newInterestPerBlock = uint256(_accrueInfo.interestPerBlock).mul(scale) / INTEREST_ELASTICITY;
+            uint256 scale = INTEREST_ELASTICITY.add(overFactor.mul(overFactor).mul(elapsedTime));
+            _accrueInfo.interestPerSecond = uint64(uint256(_accrueInfo.interestPerSecond).mul(scale) / INTEREST_ELASTICITY);
 
-            if (newInterestPerBlock > MAXIMUM_INTEREST_PER_BLOCK) {
-                newInterestPerBlock = MAXIMUM_INTEREST_PER_BLOCK; // 1000% APR maximum
+            if (_accrueInfo.interestPerSecond > MAXIMUM_INTEREST_PER_SECOND) {
+                _accrueInfo.interestPerSecond = MAXIMUM_INTEREST_PER_SECOND; // 1000% APR maximum
             }
-        } else {
-            emit LogAccrue(extraAmount, feeFraction, _accrueInfo.interestPerBlock, utilization);
-            accrueInfo = _accrueInfo;
-            return;
         }
 
-        _accrueInfo.interestPerBlock = uint64(newInterestPerBlock);
-        emit LogAccrue(extraAmount, feeFraction, newInterestPerBlock, utilization);
+        emit LogAccrue(extraAmount, feeFraction, _accrueInfo.interestPerSecond, utilization);
         accrueInfo = _accrueInfo;
     }
 
@@ -269,11 +262,6 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
     modifier solvent() {
         _;
         require(_isSolvent(msg.sender, false, exchangeRate), "KashiPair: user insolvent");
-    }
-
-    /// @notice Helper function for convenience. Peek should not modify state.
-    function peekExchangeRate() public view returns (bool, uint256) {
-        return oracle.peek(oracleData);
     }
 
     /// @notice Gets the exchange rate. I.e how much collateral to buy 1e18 asset.
@@ -323,8 +311,9 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
         uint256 share
     ) public {
         userCollateralShare[to] = userCollateralShare[to].add(share);
-        totalCollateralShare = totalCollateralShare.add(share);
-        _addTokens(collateral, share, totalCollateralShare, skim);
+        uint256 oldTotalCollateralShare = totalCollateralShare;
+        totalCollateralShare = oldTotalCollateralShare.add(share);
+        _addTokens(collateral, share, oldTotalCollateralShare, skim);
         emit LogAddCollateral(skim ? address(bentoBox) : msg.sender, to, share);
     }
 
@@ -355,6 +344,9 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
         uint256 totalAssetShare = _totalAsset.elastic;
         uint256 allShare = _totalAsset.elastic + bentoBox.toShare(asset, totalBorrow.elastic, true);
         fraction = allShare == 0 ? share : share.mul(_totalAsset.base) / allShare;
+        if (_totalAsset.base.add(fraction.to128()) < 1000) {
+            return 0;
+        }
         totalAsset = _totalAsset.add(share, fraction);
         balanceOf[to] = balanceOf[to].add(fraction);
         _addTokens(asset, share, totalAssetShare, skim);
@@ -384,6 +376,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
         balanceOf[msg.sender] = balanceOf[msg.sender].sub(fraction);
         _totalAsset.elastic = _totalAsset.elastic.sub(share.to128());
         _totalAsset.base = _totalAsset.base.sub(fraction.to128());
+        require(_totalAsset.base >= 1000, "Kashi: below minimum");
         totalAsset = _totalAsset;
         emit LogRemoveAsset(msg.sender, to, share, fraction);
         bentoBox.transfer(asset, address(this), to, share);
@@ -404,10 +397,13 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
 
         (totalBorrow, part) = totalBorrow.add(amount.add(feeAmount), true);
         userBorrowPart[msg.sender] = userBorrowPart[msg.sender].add(part);
-        emit LogBorrow(msg.sender, to, amount.add(feeAmount), part);
+        emit LogBorrow(msg.sender, to, amount, feeAmount, part);
 
-        share = bentoBox.toShare(asset, amount, true);
-        totalAsset.elastic = totalAsset.elastic.sub(share.to128());
+        share = bentoBox.toShare(asset, amount, false);
+        Rebase memory _totalAsset = totalAsset;
+        require(_totalAsset.base >= 1000, "Kashi: below minimum");
+        _totalAsset.elastic = _totalAsset.elastic.sub(share.to128());
+        totalAsset = _totalAsset;
         bentoBox.transfer(asset, address(this), to, share);
     }
 
@@ -450,20 +446,27 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
         amount = _repay(to, skim, part);
     }
 
-    uint8 internal constant ACTION_ADD_COLLATERAL = 1;
-    uint8 internal constant ACTION_ADD_ASSET = 2;
-    uint8 internal constant ACTION_REPAY = 3;
-    uint8 internal constant ACTION_REMOVE_ASSET = 4;
-    uint8 internal constant ACTION_REMOVE_COLLATERAL = 5;
-    uint8 internal constant ACTION_BORROW = 6;
-    uint8 internal constant ACTION_CALL = 10;
+    // Functions that need accrue to be called
+    uint8 internal constant ACTION_ADD_ASSET = 1;
+    uint8 internal constant ACTION_REPAY = 2;
+    uint8 internal constant ACTION_REMOVE_ASSET = 3;
+    uint8 internal constant ACTION_REMOVE_COLLATERAL = 4;
+    uint8 internal constant ACTION_BORROW = 5;
+    uint8 internal constant ACTION_GET_REPAY_SHARE = 6;
+    uint8 internal constant ACTION_GET_REPAY_PART = 7;
+
+    // Functions that don't need accrue to be called
+    uint8 internal constant ACTION_ADD_COLLATERAL = 10;
+
+    // Function on BentoBox
     uint8 internal constant ACTION_BENTO_DEPOSIT = 20;
     uint8 internal constant ACTION_BENTO_WITHDRAW = 21;
     uint8 internal constant ACTION_BENTO_TRANSFER = 22;
     uint8 internal constant ACTION_BENTO_TRANSFER_MULTIPLE = 23;
     uint8 internal constant ACTION_BENTO_SETAPPROVAL = 24;
-    uint8 internal constant ACTION_GET_REPAY_SHARE = 40;
-    uint8 internal constant ACTION_GET_REPAY_PART = 41;
+
+    // Any external call (except to BentoBox)
+    uint8 internal constant ACTION_CALL = 30;
 
     int256 internal constant USE_VALUE1 = -1;
     int256 internal constant USE_VALUE2 = -2;
@@ -506,7 +509,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
         uint256 value2
     ) internal returns (uint256, uint256) {
         (IERC20 token, address to, int256 amount, int256 share) = abi.decode(data, (IERC20, address, int256, int256));
-        amount = int256(_num(amount, value1, value2)); // Done this way to avoid stack to deep errors
+        amount = int256(_num(amount, value1, value2)); // Done this way to avoid stack too deep errors
         share = int256(_num(share, value1, value2));
         return bentoBox.deposit{value: value}(token, msg.sender, to, uint256(amount), uint256(share));
     }
@@ -558,6 +561,11 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
         return returnData;
     }
 
+    struct CookStatus {
+        bool needsSolvencyCheck;
+        bool hasAccrued;
+    }
+
     /// @notice Executes a set of actions and allows composability (contract calls) to other contracts.
     /// @param actions An array with a sequence of actions to execute (see ACTION_ declarations).
     /// @param values A one-to-one mapped array to `actions`. ETH amounts to send along with the actions.
@@ -570,10 +578,13 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
         uint256[] calldata values,
         bytes[] calldata datas
     ) external payable returns (uint256 value1, uint256 value2) {
-        accrue();
-        bool needsSolvencyCheck;
+        CookStatus memory status;
         for (uint256 i = 0; i < actions.length; i++) {
             uint8 action = actions[i];
+            if (!status.hasAccrued && action < 10) {
+                accrue();
+                status.hasAccrued = true;
+            }
             if (action == ACTION_ADD_COLLATERAL) {
                 (int256 share, address to, bool skim) = abi.decode(datas[i], (int256, address, bool));
                 addCollateral(to, skim, _num(share, value1, value2));
@@ -589,11 +600,11 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
             } else if (action == ACTION_REMOVE_COLLATERAL) {
                 (int256 share, address to) = abi.decode(datas[i], (int256, address));
                 _removeCollateral(to, _num(share, value1, value2));
-                needsSolvencyCheck = true;
+                status.needsSolvencyCheck = true;
             } else if (action == ACTION_BORROW) {
                 (int256 amount, address to) = abi.decode(datas[i], (int256, address));
                 (value1, value2) = _borrow(to, _num(amount, value1, value2));
-                needsSolvencyCheck = true;
+                status.needsSolvencyCheck = true;
             } else if (action == ACTION_BENTO_SETAPPROVAL) {
                 (address user, address _masterContract, bool approved, uint8 v, bytes32 r, bytes32 s) =
                     abi.decode(datas[i], (address, address, bool, uint8, bytes32, bytes32));
@@ -628,7 +639,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
             }
         }
 
-        if (needsSolvencyCheck) {
+        if (status.needsSolvencyCheck) {
             require(_isSolvent(msg.sender, false, exchangeRate), "KashiPair: user insolvent");
         }
     }
@@ -670,8 +681,8 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
 
                 userCollateralShare[user] = userCollateralShare[user].sub(collateralShare);
                 userBorrowPart[user] = userBorrowPart[user].sub(borrowPart);
-                emit LogRemoveCollateral(user, address(this), collateralShare);
-                emit LogRepay(address(this), user, borrowAmount, borrowPart);
+                emit LogRemoveCollateral(user, swapper == ISwapper(0) ? to : address(swapper), collateralShare);
+                emit LogRepay(swapper == ISwapper(0) ? msg.sender : address(swapper), user, borrowAmount, borrowPart);
 
                 // Keep totals
                 allCollateralShare = allCollateralShare.add(collateralShare);
@@ -685,37 +696,40 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
         totalBorrow = _totalBorrow;
         totalCollateralShare = totalCollateralShare.sub(allCollateralShare);
 
+        uint256 allBorrowShare = bentoBox.toShare(asset, allBorrowAmount, true);
+
         if (!open) {
             // Closed liquidation using a pre-approved swapper for the benefit of the LPs
-            require(KashiPair(masterContract).swappers(swapper), "KashiPair: Invalid swapper");
+            require(masterContract.swappers(swapper), "KashiPair: Invalid swapper");
 
             // Swaps the users' collateral for the borrowed asset
             bentoBox.transfer(collateral, address(this), address(swapper), allCollateralShare);
-            swapper.swap(collateral, asset, address(this), allBorrowAmount, allCollateralShare);
+            swapper.swap(collateral, asset, address(this), allBorrowShare, allCollateralShare);
 
-            uint256 extraShare = bentoBox.balanceOf(asset, address(this)).sub(uint256(totalAsset.elastic));
-
+            uint256 returnedShare = bentoBox.balanceOf(asset, address(this)).sub(uint256(totalAsset.elastic));
+            uint256 extraShare = returnedShare.sub(allBorrowShare);
             uint256 feeShare = extraShare.mul(PROTOCOL_FEE) / PROTOCOL_FEE_DIVISOR; // % of profit goes to fee
             // solhint-disable-next-line reentrancy
-            totalAsset.elastic = totalAsset.elastic.add(extraShare.sub(feeShare).to128());
-            bentoBox.transfer(asset, address(this), KashiPair(masterContract).feeTo(), feeShare);
+            bentoBox.transfer(asset, address(this), masterContract.feeTo(), feeShare);
+            totalAsset.elastic = totalAsset.elastic.add(returnedShare.sub(feeShare).to128());
             emit LogAddAsset(address(swapper), address(this), extraShare.sub(feeShare), 0);
         } else {
             // Swap using a swapper freely chosen by the caller
             // Open (flash) liquidation: get proceeds first and provide the borrow after
-            bentoBox.transfer(collateral, address(this), swapper != ISwapper(0) ? address(swapper) : to, allCollateralShare);
+            bentoBox.transfer(collateral, address(this), swapper == ISwapper(0) ? to : address(swapper), allCollateralShare);
             if (swapper != ISwapper(0)) {
-                swapper.swap(collateral, asset, msg.sender, allBorrowAmount, allCollateralShare);
+                swapper.swap(collateral, asset, msg.sender, allBorrowShare, allCollateralShare);
             }
 
-            bentoBox.transfer(asset, msg.sender, address(this), allBorrowAmount);
+            bentoBox.transfer(asset, msg.sender, address(this), allBorrowShare);
+            totalAsset.elastic = totalAsset.elastic.add(allBorrowShare.to128());
         }
     }
 
     /// @notice Withdraws the fees accumulated.
     function withdrawFees() public {
         accrue();
-        address _feeTo = KashiPair(masterContract).feeTo();
+        address _feeTo = masterContract.feeTo();
         uint256 _feesEarnedFraction = accrueInfo.feesEarnedFraction;
         balanceOf[_feeTo] = balanceOf[_feeTo].add(_feesEarnedFraction);
         accrueInfo.feesEarnedFraction = 0;
