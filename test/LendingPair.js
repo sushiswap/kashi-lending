@@ -410,7 +410,7 @@ describe("Lending Pair", function () {
             ])
             await expect(this.pairHelper.contract.borrow(this.alice.address, sansBorrowFee(getBigNumber(75, 8))))
                 .to.emit(this.pairHelper.contract, "LogBorrow")
-                .withArgs(this.alice.address, this.alice.address, "7499999999", "7499999999")
+                .withArgs(this.alice.address, this.alice.address, "7496251874", "3748125", "7499999999")
         })
 
         it("should allow borrowing to other with correct borrowPart", async function () {
@@ -422,7 +422,7 @@ describe("Lending Pair", function () {
             ])
             await expect(this.pairHelper.contract.borrow(this.bob.address, sansBorrowFee(getBigNumber(75, 8))))
                 .to.emit(this.pairHelper.contract, "LogBorrow")
-                .withArgs(this.alice.address, this.bob.address, "7499999999", "7499999999")
+                .withArgs(this.alice.address, this.bob.address, "7496251874", "3748125", "7499999999")
             expect(await this.pairHelper.contract.userBorrowPart(this.alice.address)).to.be.equal("7499999999")
             expect(await this.pairHelper.contract.userBorrowPart(this.bob.address)).to.be.equal("0")
         })
