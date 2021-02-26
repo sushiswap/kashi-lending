@@ -79,8 +79,8 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
     uint256 public exchangeRate;
 
     struct AccrueInfo {
-        uint64 interestPerBlock;
-        uint64 lastBlockAccrued;
+        uint64 interestPerSecond;
+        uint64 lastAccrued;
         uint128 feesEarnedFraction;
     }
 
@@ -115,10 +115,10 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
     uint256 private constant FULL_UTILIZATION_MINUS_MAX = FULL_UTILIZATION - MAXIMUM_TARGET_UTILIZATION;
     uint256 private constant FACTOR_PRECISION = 1e18;
 
-    uint64 private constant STARTING_INTEREST_PER_BLOCK = 4566210045; // approx 1% APR
-    uint64 private constant MINIMUM_INTEREST_PER_BLOCK = 1141552511; // approx 0.25% APR
-    uint64 private constant MAXIMUM_INTEREST_PER_BLOCK = 4566210045000; // approx 1000% APR
-    uint256 private constant INTEREST_ELASTICITY = 2000e36; // Half or double in 2000 blocks (approx 8 hours)
+    uint64 private constant STARTING_INTEREST_PER_SECOND = 68493150675; // approx 1% APR
+    uint64 private constant MINIMUM_INTEREST_PER_SECOND = 17123287665; // approx 0.25% APR
+    uint64 private constant MAXIMUM_INTEREST_PER_SECOND = 68493150675000; // approx 1000% APR
+    uint256 private constant INTEREST_ELASTICITY = 28800e36; // Half or double in 28800 seconds (8 hours) if linear
 
     uint256 private constant EXCHANGE_RATE_PRECISION = 1e18;
 
@@ -147,8 +147,9 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
     function init(bytes calldata data) public payable override {
         require(address(collateral) == address(0), "KashiPair: already initialized");
         (collateral, asset, oracle, oracleData) = abi.decode(data, (IERC20, IERC20, IOracle, bytes));
+        require(address(collateral) != address(0), "KashiPair: bad pair");
 
-        accrueInfo.interestPerBlock = uint64(STARTING_INTEREST_PER_BLOCK); // 1% APR, with 1e18 being 100%
+        accrueInfo.interestPerSecond = uint64(STARTING_INTEREST_PER_SECOND); // 1% APR, with 1e18 being 100%
     }
 
     /// @notice Helper function to get the abi encoded bytes for the `init` function.
@@ -164,19 +165,19 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
     /// @notice Accrues the interest on the borrowed tokens and handles the accumulation of fees.
     function accrue() public {
         AccrueInfo memory _accrueInfo = accrueInfo;
-        // Number of blocks since accrue was called
-        uint256 blocks = block.number - _accrueInfo.lastBlockAccrued;
-        if (blocks == 0) {
+        // Number of seconds since accrue was called
+        uint256 elapsedTime = block.timestamp - _accrueInfo.lastAccrued;
+        if (elapsedTime == 0) {
             return;
         }
-        _accrueInfo.lastBlockAccrued = uint64(block.number);
+        _accrueInfo.lastAccrued = uint64(block.timestamp);
 
         Rebase memory _totalBorrow = totalBorrow;
         if (_totalBorrow.base == 0) {
             // If there are no borrows, reset the interest rate
-            if (_accrueInfo.interestPerBlock != STARTING_INTEREST_PER_BLOCK) {
-                _accrueInfo.interestPerBlock = STARTING_INTEREST_PER_BLOCK;
-                emit LogAccrue(0, 0, STARTING_INTEREST_PER_BLOCK, 0);
+            if (_accrueInfo.interestPerSecond != STARTING_INTEREST_PER_SECOND) {
+                _accrueInfo.interestPerSecond = STARTING_INTEREST_PER_SECOND;
+                emit LogAccrue(0, 0, STARTING_INTEREST_PER_SECOND, 0);
             }
             accrueInfo = _accrueInfo;
             return;
@@ -188,7 +189,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
         uint256 fullAssetAmount = bentoBox.toAmount(asset, _totalAsset.elastic, false).add(_totalBorrow.elastic);
 
         // Accrue interest
-        extraAmount = uint256(_totalBorrow.elastic).mul(_accrueInfo.interestPerBlock).mul(blocks) / 1e18;
+        extraAmount = uint256(_totalBorrow.elastic).mul(_accrueInfo.interestPerSecond).mul(elapsedTime) / 1e18;
         _totalBorrow.elastic = _totalBorrow.elastic.add(extraAmount.to128());
 
         uint256 feeAmount = extraAmount.mul(PROTOCOL_FEE) / PROTOCOL_FEE_DIVISOR; // % of interest paid goes to fee
@@ -201,23 +202,23 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
         uint256 utilization = uint256(_totalBorrow.elastic).mul(UTILIZATION_PRECISION) / fullAssetAmount;
         if (utilization < MINIMUM_TARGET_UTILIZATION) {
             uint256 underFactor = MINIMUM_TARGET_UTILIZATION.sub(utilization).mul(FACTOR_PRECISION) / MINIMUM_TARGET_UTILIZATION;
-            uint256 scale = INTEREST_ELASTICITY.add(underFactor.mul(underFactor).mul(blocks));
-            _accrueInfo.interestPerBlock = uint64(uint256(_accrueInfo.interestPerBlock).mul(INTEREST_ELASTICITY) / scale);
+            uint256 scale = INTEREST_ELASTICITY.add(underFactor.mul(underFactor).mul(elapsedTime));
+            _accrueInfo.interestPerSecond = uint64(uint256(_accrueInfo.interestPerSecond).mul(INTEREST_ELASTICITY) / scale);
 
-            if (_accrueInfo.interestPerBlock < MINIMUM_INTEREST_PER_BLOCK) {
-                _accrueInfo.interestPerBlock = MINIMUM_INTEREST_PER_BLOCK; // 0.25% APR minimum
+            if (_accrueInfo.interestPerSecond < MINIMUM_INTEREST_PER_SECOND) {
+                _accrueInfo.interestPerSecond = MINIMUM_INTEREST_PER_SECOND; // 0.25% APR minimum
             }
         } else if (utilization > MAXIMUM_TARGET_UTILIZATION) {
             uint256 overFactor = utilization.sub(MAXIMUM_TARGET_UTILIZATION).mul(FACTOR_PRECISION) / FULL_UTILIZATION_MINUS_MAX;
-            uint256 scale = INTEREST_ELASTICITY.add(overFactor.mul(overFactor).mul(blocks));
-            _accrueInfo.interestPerBlock = uint64(uint256(_accrueInfo.interestPerBlock).mul(scale) / INTEREST_ELASTICITY);
+            uint256 scale = INTEREST_ELASTICITY.add(overFactor.mul(overFactor).mul(elapsedTime));
+            _accrueInfo.interestPerSecond = uint64(uint256(_accrueInfo.interestPerSecond).mul(scale) / INTEREST_ELASTICITY);
 
-            if (_accrueInfo.interestPerBlock > MAXIMUM_INTEREST_PER_BLOCK) {
-                _accrueInfo.interestPerBlock = MAXIMUM_INTEREST_PER_BLOCK; // 1000% APR maximum
+            if (_accrueInfo.interestPerSecond > MAXIMUM_INTEREST_PER_SECOND) {
+                _accrueInfo.interestPerSecond = MAXIMUM_INTEREST_PER_SECOND; // 1000% APR maximum
             }
         }
 
-        emit LogAccrue(extraAmount, feeFraction, _accrueInfo.interestPerBlock, utilization);
+        emit LogAccrue(extraAmount, feeFraction, _accrueInfo.interestPerSecond, utilization);
         accrueInfo = _accrueInfo;
     }
 
