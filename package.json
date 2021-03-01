@@ -6,10 +6,10 @@
         "coverage": "hardhat coverage"
     },
     "devDependencies": {
-        "@sushiswap/hardhat-framework": "sushiswap/hardhat-framework"
+        "@sushiswap/hardhat-framework": "sushiswap/hardhat-framework#6b0aff0"
     },
     "dependencies": {
-        "@boringcrypto/boring-solidity": "boringcrypto/BoringSolidity#0257ecf",
+        "@boringcrypto/boring-solidity": "boringcrypto/BoringSolidity#6ac991c",
         "@sushiswap/bentobox-sdk": "sushiswap/bentobox-sdk#4561f85"
     }
 }
