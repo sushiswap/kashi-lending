@@ -554,7 +554,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
         address callee,
         bytes memory callData
     ) internal returns (bytes memory) {
-        require(callee != address(bentoBox), "KashiPair: can't call");
+        require(callee != address(bentoBox) && callee != address(this), "KashiPair: can't call");
 
         (bool success, bytes memory returnData) = callee.call{value: value}(callData);
         require(success, _getRevertMsg(returnData));
