@@ -124,6 +124,13 @@ describe("KashiPair Basic", function () {
     })
 
     describe("Init", function () {
+        it("Reverts init for collateral address 0", async function () {
+            const oracleData = await this.oracle.getDataParameter()
+            await expect(
+                cmd.addKashiPair("pairHelper", this.bentoBox, this.kashiPair, ADDRESS_ZERO, this.b, this.oracle, oracleData)
+            ).to.be.revertedWith("KashiPair: bad pair")
+        })
+
         it("Reverts init for initilised pair", async function () {
             await expect(this.pairHelper.contract.init(this.pairHelper.initData)).to.be.revertedWith("KashiPair: already initialized")
         })
@@ -255,8 +262,13 @@ describe("KashiPair Basic", function () {
         //
     })
 
-    describe("Update Exchange Rate", function () {
-        //
+    describe("Update Exchange Rate", async function () {
+        const ACTION_UPDATE_EXCHANGE_RATE = 11
+        await this.pairHelper.contract.cook(
+            [ACTION_UPDATE_EXCHANGE_RATE],
+            [0],
+            [defaultAbiCoder.encode(["bool", "uint256", "uint256"], [true, 0, 0])]
+        )
     })
 
     describe("Add Asset", function () {

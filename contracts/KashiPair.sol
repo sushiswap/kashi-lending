@@ -457,6 +457,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
 
     // Functions that don't need accrue to be called
     uint8 internal constant ACTION_ADD_COLLATERAL = 10;
+    uint8 internal constant ACTION_UPDATE_EXCHANGE_RATE = 11;
 
     // Function on BentoBox
     uint8 internal constant ACTION_BENTO_DEPOSIT = 20;
@@ -554,7 +555,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
         address callee,
         bytes memory callData
     ) internal returns (bytes memory) {
-        require(callee != address(bentoBox), "KashiPair: can't call");
+        require(callee != address(bentoBox) && callee != address(this), "KashiPair: can't call");
 
         (bool success, bytes memory returnData) = callee.call{value: value}(callData);
         require(success, _getRevertMsg(returnData));
@@ -605,6 +606,10 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
                 (int256 amount, address to) = abi.decode(datas[i], (int256, address));
                 (value1, value2) = _borrow(to, _num(amount, value1, value2));
                 status.needsSolvencyCheck = true;
+            } else if (action == ACTION_UPDATE_EXCHANGE_RATE) {
+                (bool must_update, uint256 minRate, uint256 maxRate) = abi.decode(datas[i], (bool, uint256, uint256));
+                (bool updated, uint256 rate) = updateExchangeRate();
+                require((!must_update || updated) && rate > minRate && (maxRate == 0 || rate > maxRate), "KashiPair: rate not ok");
             } else if (action == ACTION_BENTO_SETAPPROVAL) {
                 (address user, address _masterContract, bool approved, uint8 v, bytes32 r, bytes32 s) =
                     abi.decode(datas[i], (address, address, bool, uint8, bytes32, bytes32));
