@@ -4,7 +4,7 @@ module.exports = {
             settings: {
                 optimizer: {
                     // Set the number of runs for this project, default is 500
-                    runs: 256,
+                    runs: 200,
                 },
             },
         },

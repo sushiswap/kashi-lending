@@ -263,12 +263,14 @@ describe("KashiPair Basic", function () {
     })
 
     describe("Update Exchange Rate", async function () {
-        const ACTION_UPDATE_EXCHANGE_RATE = 11
-        await this.pairHelper.contract.cook(
-            [ACTION_UPDATE_EXCHANGE_RATE],
-            [0],
-            [defaultAbiCoder.encode(["bool", "uint256", "uint256"], [true, 0, 0])]
-        )
+        it("should update exchange rate", async function () {
+            const ACTION_UPDATE_EXCHANGE_RATE = 11
+            await this.pairHelper.contract.cook(
+                [ACTION_UPDATE_EXCHANGE_RATE],
+                [0],
+                [defaultAbiCoder.encode(["bool", "uint256", "uint256"], [true, 0, 0])]
+            )
+        })
     })
 
     describe("Add Asset", function () {
