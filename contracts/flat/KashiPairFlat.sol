@@ -12,6 +12,8 @@
 // Special thanks to:
 // @burger_crypto - for the idea of trying to let the LPs benefit from liquidations
 
+// Version: 9-Mar-2021
+
 pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
@@ -131,8 +133,56 @@ contract BoringOwnable is BoringOwnableData {
     }
 }
 
+// File @boringcrypto/boring-solidity/contracts/Domain.sol@v1.1.0
+// License-Identifier: MIT
+// Based on code and smartness by Ross Campbell and Keno
+// Uses immutable to store the domain separator to reduce gas usage
+// If the chain id changes due to a fork, the forked chain will calculate on the fly.
+
+contract Domain {
+    bytes32 private constant DOMAIN_SEPARATOR_SIGNATURE_HASH = keccak256("EIP712Domain(uint256 chainId,address verifyingContract)");
+    // See https://eips.ethereum.org/EIPS/eip-191
+    string private constant EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA = "\x19\x01";
+
+    // solhint-disable var-name-mixedcase
+    bytes32 private immutable _DOMAIN_SEPARATOR;
+    uint256 private immutable DOMAIN_SEPARATOR_CHAIN_ID;
+
+    /// @dev Calculate the DOMAIN_SEPARATOR
+    function _calculateDomainSeparator(uint256 chainId) private view returns (bytes32) {
+        return keccak256(abi.encode(DOMAIN_SEPARATOR_SIGNATURE_HASH, chainId, address(this)));
+    }
+
+    constructor() public {
+        uint256 chainId;
+        assembly {
+            chainId := chainid()
+        }
+        _DOMAIN_SEPARATOR = _calculateDomainSeparator(DOMAIN_SEPARATOR_CHAIN_ID = chainId);
+    }
+
+    /// @dev Return the DOMAIN_SEPARATOR
+    // It's named internal to allow making it public from the contract that uses it by creating a simple view function
+    // with the desired public name, such as DOMAIN_SEPARATOR or domainSeparator.
+    // solhint-disable-next-line func-name-mixedcase
+    function _domainSeparator() internal view returns (bytes32) {
+        uint256 chainId;
+        assembly {
+            chainId := chainid()
+        }
+        return chainId == DOMAIN_SEPARATOR_CHAIN_ID ? _DOMAIN_SEPARATOR : _calculateDomainSeparator(chainId);
+    }
+
+    function _getDigest(bytes32 dataHash) internal view returns (bytes32 digest) {
+        digest = keccak256(abi.encodePacked(EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA, _domainSeparator(), dataHash));
+    }
+}
+
 // File @boringcrypto/boring-solidity/contracts/ERC20.sol@v1.1.0
 // License-Identifier: MIT
+
+// solhint-disable no-inline-assembly
+// solhint-disable not-rely-on-time
 
 // Data part taken out for building of contracts that receive delegate calls
 contract ERC20Data {
@@ -144,20 +194,9 @@ contract ERC20Data {
     mapping(address => uint256) public nonces;
 }
 
-contract ERC20 is ERC20Data {
+contract ERC20 is ERC20Data, Domain {
     event Transfer(address indexed _from, address indexed _to, uint256 _value);
     event Approval(address indexed _owner, address indexed _spender, uint256 _value);
-
-    // solhint-disable-next-line var-name-mixedcase
-    bytes32 public immutable DOMAIN_SEPARATOR;
-
-    constructor() public {
-        uint256 chainId;
-        assembly {
-            chainId := chainid()
-        }
-        DOMAIN_SEPARATOR = keccak256(abi.encode(keccak256("EIP712Domain(uint256 chainId,address verifyingContract)"), chainId, address(this)));
-    }
 
     /// @notice Transfers `amount` tokens from `msg.sender` to `to`.
     /// @param to The address to move the tokens.
@@ -221,8 +260,6 @@ contract ERC20 is ERC20Data {
         return true;
     }
 
-    // See https://eips.ethereum.org/EIPS/eip-191
-    string private constant EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA = "\x19\x01";
     // keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
     bytes32 private constant PERMIT_SIGNATURE_HASH = 0x6e71edae12b1b97f4d1f60370fef10105fa2faae0126114a169c64845d6126c9;
 
@@ -242,16 +279,11 @@ contract ERC20 is ERC20Data {
     ) external {
         require(owner_ != address(0), "ERC20: Owner cannot be 0");
         require(block.timestamp < deadline, "ERC20: Expired");
-        bytes32 digest =
-            keccak256(
-                abi.encodePacked(
-                    EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA,
-                    DOMAIN_SEPARATOR,
-                    keccak256(abi.encode(PERMIT_SIGNATURE_HASH, owner_, spender, value, nonces[owner_]++, deadline))
-                )
-            );
-        address recoveredAddress = ecrecover(digest, v, r, s);
-        require(recoveredAddress == owner_, "ERC20: Invalid Signature");
+        require(
+            ecrecover(_getDigest(keccak256(abi.encode(PERMIT_SIGNATURE_HASH, owner_, spender, value, nonces[owner_]++, deadline))), v, r, s) ==
+                owner_,
+            "ERC20: Invalid Signature"
+        );
         allowance[owner_][spender] = value;
         emit Approval(owner_, spender, value);
     }
@@ -706,7 +738,7 @@ interface ISwapper {
 /// @title KashiPair
 /// @dev This contract allows contract calls to any contract (except BentoBox)
 /// from arbitrary callers thus, don't trust calls from this contract in any circumstances.
-contract KashiPair is ERC20, BoringOwnable, IMasterContract {
+contract KashiPairMediumRiskV1 is ERC20, BoringOwnable, IMasterContract {
     using BoringMath for uint256;
     using BoringMath128 for uint128;
     using RebaseLibrary for Rebase;
@@ -725,7 +757,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
 
     // Immutables (for MasterContract and all clones)
     IBentoBoxV1 public immutable bentoBox;
-    KashiPair public immutable masterContract;
+    KashiPairMediumRiskV1 public immutable masterContract;
 
     // MasterContract variables
     address public feeTo;
