@@ -3,13 +3,16 @@ pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringMath.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringRebase.sol";
+import "@boringcrypto/boring-solidity/contracts/libraries/BoringERC20.sol";
 import "@sushiswap/bentobox-sdk/contracts/IBentoBoxV1.sol";
+import "./interfaces/IOracle.sol";
 import "./KashiPair.sol";
 
 /// @dev This contract provides useful helper functions for `KashiPair`.
 contract KashiPairHelper {
     using BoringMath for uint256;
     using BoringMath128 for uint128;
+    using BoringERC20 for IERC20;
     using RebaseLibrary for Rebase;
 
     /// @dev Helper function to calculate the collateral shares that are needed for `borrowPart`,
@@ -32,4 +35,85 @@ contract KashiPairHelper {
                 false
             );
     }
+
+    struct KashiPairInfo {
+        IERC20 collateral;
+        string collateralSymbol;
+        uint8 collateralDecimals;
+        IERC20 asset;
+        string assetSymbol;
+        uint8 assetDecimals;
+        IOracle oracle;
+        bytes oracleData;
+        uint256 currentExchangeRate;
+        uint256 oracleExchangeRate;
+        uint64 interestPerSecond;
+    }
+
+    function getPairs(KashiPair[] calldata addresses) external view returns (KashiPairInfo[] memory) {
+        KashiPairInfo[] memory pairs = new KashiPairInfo[](addresses.length);
+        for (uint256 i = 0; i < addresses.length; i++) {
+            pairs[i].collateral = addresses[i].collateral();
+            pairs[i].collateralSymbol = IERC20(addresses[i].collateral()).safeSymbol();
+            pairs[i].collateralDecimals = IERC20(addresses[i].collateral()).safeDecimals();
+            pairs[i].asset = addresses[i].asset();
+            pairs[i].assetSymbol = IERC20(addresses[i].asset()).safeSymbol();
+            pairs[i].assetDecimals = IERC20(addresses[i].asset()).safeDecimals();
+            pairs[i].oracle = addresses[i].oracle();
+            pairs[i].oracleData = addresses[i].oracleData();
+            pairs[i].currentExchangeRate = addresses[i].exchangeRate();
+            (, pairs[i].oracleExchangeRate) = addresses[i].oracle().peek(pairs[i].oracleData);
+            (pairs[i].interestPerSecond, ,) = addresses[i].accrueInfo();
+        }
+        return pairs;
+    }
+
+    struct PairPollInfo {
+        uint256 suppliedPairCount;
+        uint256 borrowPairCount;
+    }
+
+    struct PairPoll {
+        uint256 totalCollateralAmount;
+        uint256 userCollateralAmount;
+        uint256 totalAssetAmount;
+        uint256 userAssetAmount;
+        uint256 totalBorrowAmount;
+        uint256 userBorrowAmount;
+    }
+
+    function pollPairs(address who, KashiPair[] calldata addresses) external view returns (PairPollInfo memory, PairPoll[] memory) {
+        PairPollInfo memory info;
+        PairPoll[] memory pairs = new PairPoll[](addresses.length);
+
+        for (uint256 i = 0; i < addresses.length; i++) {
+            {
+                pairs[i].totalCollateralAmount = addresses[i].bentoBox().toAmount(addresses[i].collateral(), addresses[i].totalCollateralShare(), false);
+                pairs[i].userCollateralAmount = addresses[i].bentoBox().toAmount(addresses[i].collateral(), addresses[i].userCollateralShare(who), false);
+            }
+            {
+            Rebase memory totalAsset;
+            {
+            (uint128 totalAssetElastic, uint128 totalAssetBase) = addresses[i].totalAsset();
+            pairs[i].totalAssetAmount = addresses[i].bentoBox().toAmount(addresses[i].asset(), totalAssetElastic, false);
+            totalAsset = Rebase(totalAssetElastic, totalAssetBase);
+            }
+            pairs[i].userAssetAmount = addresses[i].bentoBox().toAmount(addresses[i].asset(), totalAsset.toElastic(addresses[i].balanceOf(who), false), false);
+            if(pairs[i].userAssetAmount > 0) {
+                info.suppliedPairCount += 1;
+            }
+            }
+            (uint128 totalBorrowAmount, uint128 totalBorrowPart) = addresses[i].totalBorrow();
+            Rebase memory totalBorrow = Rebase(totalBorrowAmount, totalBorrowPart);
+            pairs[i].totalBorrowAmount = totalBorrowAmount;
+            pairs[i].userBorrowAmount = totalBorrow.toElastic(addresses[i].userBorrowPart(who), false);
+            if(pairs[i].userBorrowAmount > 0) {
+                info.borrowPairCount += 1;
+            }
+        }
+
+        return (info, pairs);
+
+    }
+
 }
