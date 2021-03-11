@@ -627,7 +627,7 @@ interface IBentoBoxV1 {
         bool roundUp
     ) external view returns (uint256 share);
 
-    function totals(IERC20) external view returns (uint128 elastic, uint128 base);
+    function totals(IERC20) external view returns (Rebase memory totals_);
 
     function transfer(
         IERC20 token,
@@ -1358,13 +1358,13 @@ contract KashiPairMediumRiskV1 is ERC20, BoringOwnable, IMasterContract {
 
     /// @notice Handles the liquidation of users' balances, once the users' amount of collateral is too low.
     /// @param users An array of user addresses.
-    /// @param borrowParts A one-to-one mapping to `users`, contains partial borrow amounts (to liquidate) of the respective user.
+    /// @param maxBorrowParts A one-to-one mapping to `users`, contains partial borrow amounts (to liquidate) of the respective user.
     /// @param to Address of the receiver in open liquidations if `swapper` is zero.
     /// @param swapper Contract address of the `ISwapper` implementation. Swappers are restricted for closed liquidations. See `setSwapper`.
     /// @param open True to perform a open liquidation else False.
     function liquidate(
         address[] calldata users,
-        uint256[] calldata borrowParts,
+        uint256[] calldata maxBorrowParts,
         address to,
         ISwapper swapper,
         bool open
@@ -1377,22 +1377,25 @@ contract KashiPairMediumRiskV1 is ERC20, BoringOwnable, IMasterContract {
         uint256 allBorrowAmount;
         uint256 allBorrowPart;
         Rebase memory _totalBorrow = totalBorrow;
-        uint256 len = users.length;
-        for (uint256 i = 0; i < len; i++) {
+        Rebase memory bentoBoxTotals = bentoBox.totals(collateral);
+        for (uint256 i = 0; i < users.length; i++) {
             address user = users[i];
             if (!_isSolvent(user, open, _exchangeRate)) {
-                uint256 borrowPart = borrowParts[i];
+                uint256 borrowPart;
+                {
+                    uint256 availableBorrowPart = userBorrowPart[user];
+                    borrowPart = maxBorrowParts[i] > availableBorrowPart ? availableBorrowPart : maxBorrowParts[i];
+                    userBorrowPart[user] = availableBorrowPart.sub(borrowPart);
+                }
                 uint256 borrowAmount = _totalBorrow.toElastic(borrowPart, false);
                 uint256 collateralShare =
-                    bentoBox.toShare(
-                        collateral,
+                    bentoBoxTotals.toBase(
                         borrowAmount.mul(LIQUIDATION_MULTIPLIER).mul(_exchangeRate) /
                             (LIQUIDATION_MULTIPLIER_PRECISION * EXCHANGE_RATE_PRECISION),
                         false
                     );
 
                 userCollateralShare[user] = userCollateralShare[user].sub(collateralShare);
-                userBorrowPart[user] = userBorrowPart[user].sub(borrowPart);
                 emit LogRemoveCollateral(user, swapper == ISwapper(0) ? to : address(swapper), collateralShare);
                 emit LogRepay(swapper == ISwapper(0) ? msg.sender : address(swapper), user, borrowAmount, borrowPart);
 

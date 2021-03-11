@@ -2,6 +2,24 @@ module.exports = {
     hardhat: {
         solidity: {
             overrides: {
+                "contracts/KashiPair.sol": {
+                    version: "0.6.12",
+                    settings: {
+                        optimizer: {
+                            enabled: true,
+                            runs: 1,
+                        },
+                    },
+                },
+                "contracts/mocks/KashiPairMock.sol": {
+                    version: "0.6.12",
+                    settings: {
+                        optimizer: {
+                            enabled: true,
+                            runs: 1,
+                        },
+                    },
+                },
                 "contracts/flat/KashiPairFlat.sol": {
                     version: "0.6.12",
                     settings: {
