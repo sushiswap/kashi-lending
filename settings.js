@@ -25,7 +25,13 @@ module.exports = {
     },
     solcover: {
         // We are always skipping mocks and interfaces, add specific files here
-        skipFiles: ["libraries/FixedPoint.sol", "libraries/FullMath.sol", "libraries/SignedSafeMath.sol"],
+        skipFiles: [
+            "libraries/FixedPoint.sol",
+            "libraries/FullMath.sol",
+            "libraries/SignedSafeMath.sol",
+            "flat/KashiPairFlat.sol",
+            "flat/SushiSwapSwapperFlat.sol",
+        ],
     },
     prettier: {
         // Add or change prettier settings here
