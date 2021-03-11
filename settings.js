@@ -1,10 +1,24 @@
 module.exports = {
     hardhat: {
         solidity: {
-            settings: {
-                optimizer: {
-                    // Set the number of runs for this project, default is 500
-                    runs: 800,
+            overrides: {
+                "contracts/flat/KashiPairFlat.sol": {
+                    version: "0.6.12",
+                    settings: {
+                        optimizer: {
+                            enabled: true,
+                            runs: 800,
+                        },
+                    },
+                },
+                "contracts/flat/SushiSwapSwapperFlat.sol": {
+                    version: "0.6.12",
+                    settings: {
+                        optimizer: {
+                            enabled: true,
+                            runs: 50000,
+                        },
+                    },
                 },
             },
         },

@@ -65,7 +65,13 @@ describe("KashiPair Basic", function () {
             await cmd.deploy("erc20", "ERC20Mock", 10000000)
             await cmd.deploy("kashiPair", "KashiPairMock", this.bentoBox.address)
             await cmd.deploy("oracle", "OracleMock")
-            await cmd.deploy("swapper", "SushiSwapSwapper", this.bentoBox.address, this.factory.address)
+            await cmd.deploy(
+                "swapper",
+                "SushiSwapSwapper",
+                this.bentoBox.address,
+                this.factory.address,
+                "0xfa418eb2c6e15c39605695377d0e364aca1c3c56b333eefe9c0d4b707662f785"
+            )
             await this.kashiPair.setSwapper(this.swapper.address, true)
 
             await this.oracle.set(getBigNumber(1, 28))
@@ -240,7 +246,9 @@ describe("KashiPair Basic", function () {
             await this.pairHelper.contract.accrue()
             await advanceTimeAndBlock(30000, ethers)
             await this.pairHelper.contract.accrue()
-            await advanceTimeAndBlock(3000000, ethers)
+            await advanceTimeAndBlock(1500000, ethers)
+            await this.pairHelper.contract.accrue()
+            await advanceTimeAndBlock(1500000, ethers)
             await this.pairHelper.contract.accrue()
 
             expect((await this.pairHelper.contract.accrueInfo()).interestPerSecond).to.be.equal(68493150675000)
@@ -799,7 +807,13 @@ describe("KashiPair Basic", function () {
                 cmd.borrow(sansBorrowFee(getBigNumber(75, 8))),
                 cmd.accrue(),
             ])
-            await cmd.deploy("invalidSwapper", "SushiSwapSwapper", this.bentoBox.address, this.factory.address)
+            await cmd.deploy(
+                "invalidSwapper",
+                "SushiSwapSwapper",
+                this.bentoBox.address,
+                this.factory.address,
+                "0xfa418eb2c6e15c39605695377d0e364aca1c3c56b333eefe9c0d4b707662f785"
+            )
             await expect(
                 this.pairHelper.contract
                     .connect(this.bob)
