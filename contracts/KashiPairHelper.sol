@@ -16,6 +16,8 @@ contract KashiPairHelper {
     using RebaseLibrary for Rebase;
 
     uint256 public constant APY_PRECISION = 1e8;
+    uint256 private constant PROTOCOL_FEE_LEFTOVER = 90000; // 100% - 10%
+    uint256 private constant PROTOCOL_FEE_DIVISOR = 1e5;
 
     /// @dev Helper function to calculate the collateral shares that are needed for `borrowPart`,
     /// taking the current exchange rate into account.
@@ -120,7 +122,7 @@ contract KashiPairHelper {
             }
             {
                 uint256 yearlyInterest = pairs[i].totalBorrowAmount.mul(pairs[i].interestPerSecond).mul(365 days) / 1e18;
-                pairs[i].assetAPR = yearlyInterest.mul(APY_PRECISION) / pairs[i].totalBorrowAmount.add(pairs[i].totalAssetAmount);
+                pairs[i].assetAPR = yearlyInterest.mul(APY_PRECISION).mul(PROTOCOL_FEE_LEFTOVER) / pairs[i].totalBorrowAmount.add(pairs[i].totalAssetAmount).mul(PROTOCOL_FEE_DIVISOR);
                 pairs[i].borrowAPR = yearlyInterest.mul(APY_PRECISION) / pairs[i].totalBorrowAmount;
             }
         }
