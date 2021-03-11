@@ -12,7 +12,7 @@ describe("SushiSwapSwapper", function () {
 
             await cmd.deploy("weth9", "WETH9Mock")
             await cmd.deploy("bentoBox", "BentoBoxMock", this.weth9.address)
-            await cmd.deploy("swapper", "SushiSwapSwapper", this.bentoBox.address, this.factory.address)
+            await cmd.deploy("swapper", "contracts/swappers/SushiSwapSwapper.sol:SushiSwapSwapper", this.bentoBox.address, this.factory.address)
         })
     })
 

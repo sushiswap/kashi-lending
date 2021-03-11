@@ -65,7 +65,7 @@ describe("KashiPair Basic", function () {
             await cmd.deploy("erc20", "ERC20Mock", 10000000)
             await cmd.deploy("kashiPair", "KashiPairMock", this.bentoBox.address)
             await cmd.deploy("oracle", "OracleMock")
-            await cmd.deploy("swapper", "SushiSwapSwapper", this.bentoBox.address, this.factory.address)
+            await cmd.deploy("swapper", "contracts/swappers/SushiSwapSwapper.sol:SushiSwapSwapper", this.bentoBox.address, this.factory.address)
             await this.kashiPair.setSwapper(this.swapper.address, true)
 
             await this.oracle.set(getBigNumber(1, 28))
@@ -799,7 +799,7 @@ describe("KashiPair Basic", function () {
                 cmd.borrow(sansBorrowFee(getBigNumber(75, 8))),
                 cmd.accrue(),
             ])
-            await cmd.deploy("invalidSwapper", "SushiSwapSwapper", this.bentoBox.address, this.factory.address)
+            await cmd.deploy("invalidSwapper", "contracts/swappers/SushiSwapSwapper.sol:SushiSwapSwapper", this.bentoBox.address, this.factory.address)
             await expect(
                 this.pairHelper.contract
                     .connect(this.bob)

@@ -16,7 +16,7 @@ describe("KashiPair", function () {
 
             await cmd.deploy("kashiPair", "KashiPair", this.bentoBox.address)
             await cmd.deploy("oracle", "OracleMock")
-            await cmd.deploy("swapper", "SushiSwapSwapper", this.bentoBox.address, this.factory.address)
+            await cmd.deploy("swapper", "contracts/swappers/SushiSwapSwapper.sol:SushiSwapSwapper", this.bentoBox.address, this.factory.address)
             await this.kashiPair.setSwapper(this.swapper.address, true)
 
             await this.oracle.set(getBigNumber(1, 28))
