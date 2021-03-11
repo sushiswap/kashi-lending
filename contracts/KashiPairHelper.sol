@@ -79,7 +79,8 @@ contract KashiPairHelper {
         uint256 currentExchangeRate;
         uint256 oracleExchangeRate;
         uint64 interestPerSecond;
-        uint256 assetAPY;
+        uint256 assetAPR;
+        uint256 borrowAPR;
     }
 
     function pollPairs(address who, KashiPair[] calldata addresses) external view returns (PairPollInfo memory, PairPoll[] memory) {
@@ -119,7 +120,8 @@ contract KashiPairHelper {
             }
             {
                 uint256 yearlyInterest = pairs[i].totalBorrowAmount.mul(pairs[i].interestPerSecond).mul(365 days) / 1e18;
-                pairs[i].assetAPY = yearlyInterest.mul(APY_PRECISION) / pairs[i].totalBorrowAmount.add(pairs[i].totalAssetAmount);
+                pairs[i].assetAPR = yearlyInterest.mul(APY_PRECISION) / pairs[i].totalBorrowAmount.add(pairs[i].totalAssetAmount);
+                pairs[i].borrowAPR = yearlyInterest.mul(APY_PRECISION) / pairs[i].totalBorrowAmount;
             }
         }
 
