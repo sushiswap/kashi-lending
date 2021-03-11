@@ -2,6 +2,10 @@
 # yarn lockfile v1
 
 
+"@boringcrypto/boring-solidity@boringcrypto/BoringSolidity#23cf083faf5c3217336a154f6593e42e6cd87d05":
+  version "1.2.0"
+  resolved "https://codeload.github.com/boringcrypto/BoringSolidity/tar.gz/23cf083faf5c3217336a154f6593e42e6cd87d05"
+
 "@boringcrypto/boring-solidity@boringcrypto/BoringSolidity#2e434b3517e134503379c4655194ac97e18acc02":
   version "1.1.0"
   resolved "https://codeload.github.com/boringcrypto/BoringSolidity/tar.gz/2e434b3517e134503379c4655194ac97e18acc02"
@@ -605,7 +609,7 @@
   version "1.0.0"
   resolved "https://codeload.github.com/sushiswap/bentobox-sdk/tar.gz/f5ca20dace7ecb4343321820acc6fbef2502e698"
   dependencies:
-    "@boringcrypto/boring-solidity" boringcrypto/BoringSolidity#2e434b3517e134503379c4655194ac97e18acc02
+    "@boringcrypto/boring-solidity" boringcrypto/BoringSolidity#0257ecf
 
 "@sushiswap/core@^1.4.2":
   version "1.4.2"
