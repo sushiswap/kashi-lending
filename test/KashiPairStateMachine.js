@@ -6,7 +6,7 @@ module.exports = class KashiPairStateMachine {
         this.provider = kashiPair.provider
         this.kashiPair = kashiPair
         this.bentoBox = bentoBox
-        this.fromBlock = 1
+        this.fromBlock = 0
 
         // bookkeeping
         this._ignoreTransfers = false
@@ -332,6 +332,9 @@ module.exports = class KashiPairStateMachine {
             [this.kashiPair.address.toLowerCase()]: this.kashiPair,
         }
         const blockNum = await this.provider.getBlockNumber()
+        if (this.fromBlock == 0 && blockNum > 100) {
+            this.fromBlock = blockNum - 100
+        }
 
         if (blockNum < this.fromBlock) {
             return

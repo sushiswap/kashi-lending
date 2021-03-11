@@ -10,9 +10,10 @@
 // Twitter: @Boring_Crypto
 
 // Special thanks to:
+// @0xKeno - for all his invaluable contributions
 // @burger_crypto - for the idea of trying to let the LPs benefit from liquidations
 
-// Version: 9-Mar-2021
+// Version: 10-Mar-2021
 
 pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
@@ -892,14 +893,14 @@ contract KashiPairMediumRiskV1 is ERC20, BoringOwnable, IMasterContract {
         uint256 extraAmount = 0;
         uint256 feeFraction = 0;
         Rebase memory _totalAsset = totalAsset;
-        uint256 fullAssetAmount = bentoBox.toAmount(asset, _totalAsset.elastic, false).add(_totalBorrow.elastic);
 
         // Accrue interest
         extraAmount = uint256(_totalBorrow.elastic).mul(_accrueInfo.interestPerSecond).mul(elapsedTime) / 1e18;
         _totalBorrow.elastic = _totalBorrow.elastic.add(extraAmount.to128());
+        uint256 fullAssetAmount = bentoBox.toAmount(asset, _totalAsset.elastic, false).add(_totalBorrow.elastic);
 
         uint256 feeAmount = extraAmount.mul(PROTOCOL_FEE) / PROTOCOL_FEE_DIVISOR; // % of interest paid goes to fee
-        feeFraction = feeAmount.mul(_totalAsset.base) / fullAssetAmount.sub(feeAmount);
+        feeFraction = feeAmount.mul(_totalAsset.base) / fullAssetAmount;
         _accrueInfo.feesEarnedFraction = _accrueInfo.feesEarnedFraction.add(feeFraction.to128());
         totalAsset.base = _totalAsset.base.add(feeFraction.to128());
         totalBorrow = _totalBorrow;
@@ -917,11 +918,11 @@ contract KashiPairMediumRiskV1 is ERC20, BoringOwnable, IMasterContract {
         } else if (utilization > MAXIMUM_TARGET_UTILIZATION) {
             uint256 overFactor = utilization.sub(MAXIMUM_TARGET_UTILIZATION).mul(FACTOR_PRECISION) / FULL_UTILIZATION_MINUS_MAX;
             uint256 scale = INTEREST_ELASTICITY.add(overFactor.mul(overFactor).mul(elapsedTime));
-            _accrueInfo.interestPerSecond = uint64(uint256(_accrueInfo.interestPerSecond).mul(scale) / INTEREST_ELASTICITY);
-
-            if (_accrueInfo.interestPerSecond > MAXIMUM_INTEREST_PER_SECOND) {
-                _accrueInfo.interestPerSecond = MAXIMUM_INTEREST_PER_SECOND; // 1000% APR maximum
+            uint256 newInterestPerSecond = uint256(_accrueInfo.interestPerSecond).mul(scale) / INTEREST_ELASTICITY;
+            if (newInterestPerSecond > MAXIMUM_INTEREST_PER_SECOND) {
+                newInterestPerSecond = MAXIMUM_INTEREST_PER_SECOND; // 1000% APR maximum
             }
+            _accrueInfo.interestPerSecond = uint64(newInterestPerSecond);
         }
 
         emit LogAccrue(extraAmount, feeFraction, _accrueInfo.interestPerSecond, utilization);
