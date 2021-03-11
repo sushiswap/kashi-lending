@@ -51,7 +51,7 @@ contract KashiPairHelper {
         bytes oracleData;
     }
 
-    function getPairs(KashiPair[] calldata addresses) external view returns (KashiPairInfo[] memory) {
+    function getPairs(KashiPair[] calldata addresses) public view returns (KashiPairInfo[] memory) {
         KashiPairInfo[] memory pairs = new KashiPairInfo[](addresses.length);
         for (uint256 i = 0; i < addresses.length; i++) {
             pairs[i].collateral = addresses[i].collateral();
@@ -85,23 +85,24 @@ contract KashiPairHelper {
         uint256 borrowAPR;
     }
 
-    function pollPairs(address who, KashiPair[] calldata addresses) external view returns (PairPollInfo memory, PairPoll[] memory) {
+    function pollPairs(address who, KashiPair[] calldata addresses) public view returns (PairPollInfo memory, PairPoll[] memory) {
         PairPollInfo memory info;
         PairPoll[] memory pairs = new PairPoll[](addresses.length);
 
         for (uint256 i = 0; i < addresses.length; i++) {
+            IBentoBoxV1 bentoBox = IBentoBoxV1(addresses[i].bentoBox());
             {
-                pairs[i].totalCollateralAmount = addresses[i].bentoBox().toAmount(addresses[i].collateral(), addresses[i].totalCollateralShare(), false);
-                pairs[i].userCollateralAmount = addresses[i].bentoBox().toAmount(addresses[i].collateral(), addresses[i].userCollateralShare(who), false);
+                pairs[i].totalCollateralAmount = bentoBox.toAmount(addresses[i].collateral(), addresses[i].totalCollateralShare(), false);
+                pairs[i].userCollateralAmount = bentoBox.toAmount(addresses[i].collateral(), addresses[i].userCollateralShare(who), false);
             }
             {
                 Rebase memory totalAsset;
                 {
                     (uint128 totalAssetElastic, uint128 totalAssetBase) = addresses[i].totalAsset();
-                    pairs[i].totalAssetAmount = addresses[i].bentoBox().toAmount(addresses[i].asset(), totalAssetElastic, false);
+                    pairs[i].totalAssetAmount = bentoBox.toAmount(addresses[i].asset(), totalAssetElastic, false);
                     totalAsset = Rebase(totalAssetElastic, totalAssetBase);
                 }
-                pairs[i].userAssetAmount = addresses[i].bentoBox().toAmount(addresses[i].asset(), totalAsset.toElastic(addresses[i].balanceOf(who), false), false);
+                pairs[i].userAssetAmount = bentoBox.toAmount(addresses[i].asset(), totalAsset.toElastic(addresses[i].balanceOf(who), false), false);
                 if(pairs[i].userAssetAmount > 0) {
                     info.suppliedPairCount += 1;
                 }
