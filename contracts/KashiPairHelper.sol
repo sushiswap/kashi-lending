@@ -45,9 +45,6 @@ contract KashiPairHelper {
         uint8 assetDecimals;
         IOracle oracle;
         bytes oracleData;
-        uint256 currentExchangeRate;
-        uint256 oracleExchangeRate;
-        uint64 interestPerSecond;
     }
 
     function getPairs(KashiPair[] calldata addresses) external view returns (KashiPairInfo[] memory) {
@@ -61,9 +58,6 @@ contract KashiPairHelper {
             pairs[i].assetDecimals = IERC20(addresses[i].asset()).safeDecimals();
             pairs[i].oracle = addresses[i].oracle();
             pairs[i].oracleData = addresses[i].oracleData();
-            pairs[i].currentExchangeRate = addresses[i].exchangeRate();
-            (, pairs[i].oracleExchangeRate) = addresses[i].oracle().peek(pairs[i].oracleData);
-            (pairs[i].interestPerSecond, ,) = addresses[i].accrueInfo();
         }
         return pairs;
     }
@@ -80,6 +74,9 @@ contract KashiPairHelper {
         uint256 userAssetAmount;
         uint256 totalBorrowAmount;
         uint256 userBorrowAmount;
+        uint256 currentExchangeRate;
+        uint256 oracleExchangeRate;
+        uint64 interestPerSecond;
     }
 
     function pollPairs(address who, KashiPair[] calldata addresses) external view returns (PairPollInfo memory, PairPoll[] memory) {
@@ -94,14 +91,19 @@ contract KashiPairHelper {
             {
             Rebase memory totalAsset;
             {
-            (uint128 totalAssetElastic, uint128 totalAssetBase) = addresses[i].totalAsset();
-            pairs[i].totalAssetAmount = addresses[i].bentoBox().toAmount(addresses[i].asset(), totalAssetElastic, false);
-            totalAsset = Rebase(totalAssetElastic, totalAssetBase);
+                (uint128 totalAssetElastic, uint128 totalAssetBase) = addresses[i].totalAsset();
+                pairs[i].totalAssetAmount = addresses[i].bentoBox().toAmount(addresses[i].asset(), totalAssetElastic, false);
+                totalAsset = Rebase(totalAssetElastic, totalAssetBase);
             }
-            pairs[i].userAssetAmount = addresses[i].bentoBox().toAmount(addresses[i].asset(), totalAsset.toElastic(addresses[i].balanceOf(who), false), false);
-            if(pairs[i].userAssetAmount > 0) {
-                info.suppliedPairCount += 1;
+                pairs[i].userAssetAmount = addresses[i].bentoBox().toAmount(addresses[i].asset(), totalAsset.toElastic(addresses[i].balanceOf(who), false), false);
+                if(pairs[i].userAssetAmount > 0) {
+                    info.suppliedPairCount += 1;
+                }
             }
+            {
+                pairs[i].currentExchangeRate = addresses[i].exchangeRate();
+                (, pairs[i].oracleExchangeRate) = addresses[i].oracle().peek(addresses[i].oracleData());
+                (pairs[i].interestPerSecond, ,) = addresses[i].accrueInfo();
             }
             (uint128 totalBorrowAmount, uint128 totalBorrowPart) = addresses[i].totalBorrow();
             Rebase memory totalBorrow = Rebase(totalBorrowAmount, totalBorrowPart);
