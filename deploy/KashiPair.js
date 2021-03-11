@@ -465,6 +465,15 @@ module.exports = async function (hre) {
         },
         { stateMutability: "payable", type: "receive" },
     ]
+    const factory_abi = [
+        {
+            inputs: [],
+            name: "pairCodeHash",
+            outputs: [{ internalType: "bytes32", name: "", type: "bytes32" }],
+            stateMutability: "pure",
+            type: "function",
+        },
+    ]
 
     const signers = await hre.ethers.getSigners()
     const deployer = signers[0]
@@ -491,7 +500,20 @@ module.exports = async function (hre) {
     }
     console.log("Gasprice:", gasPrice.toString(), " with multiplier ", multiplier, "final", finalGasPrice.toString())
 
-    if (deployerBalance < finalGasPrice.mul(gasLimit + 500000)) {
+    let bentoBoxAddress = "0xB5891167796722331b7ea7824F036b3Bdcb4531C"
+    let factory = "0xc35DADB65012eC5796536bD9864eD8773aBc74C4"
+    if (chainId == "1") {
+        factory = "0xC0AEe478e3658e2610c5F7A4A2E1777cE9e4f2Ac"
+    }
+
+    const bentoBox = new ethers.Contract(bentoBoxAddress, bentoBoxABI, bentoBoxSigner)
+
+    const initCodeHash = await new ethers.Contract(factory, factory_abi, deployer).pairCodeHash()
+    console.log("InitCodeHash is", initCodeHash)
+
+    console.log("Deployer balance", deployerBalance.toString())
+    console.log("Needed", finalGasPrice.mul(gasLimit + 500000).toString(), finalGasPrice.toString(), gasLimit.toString())
+    if (deployerBalance.lt(finalGasPrice.mul(gasLimit + 500000))) {
         console.log(
             "Sending native token to fund deployment:",
             finalGasPrice
@@ -507,14 +529,6 @@ module.exports = async function (hre) {
         await tx.wait()
     }
 
-    let bentoBoxAddress = "0xB5891167796722331b7ea7824F036b3Bdcb4531C"
-    let factory = "0xc35DADB65012eC5796536bD9864eD8773aBc74C4"
-    if (chainId == "1") {
-        factory = "0xC0AEe478e3658e2610c5F7A4A2E1777cE9e4f2Ac"
-    }
-
-    const bentoBox = new ethers.Contract(bentoBoxAddress, bentoBoxABI, bentoBoxSigner)
-
     console.log("Deploying KashiPair contract")
     tx = await hre.deployments.deploy("KashiPairMediumRiskV1", {
         from: deployer.address,
@@ -528,7 +542,7 @@ module.exports = async function (hre) {
     console.log("Deploying Swapper contract")
     tx = await hre.deployments.deploy("SushiSwapSwapperV1", {
         from: deployer.address,
-        args: [bentoBoxAddress, factory],
+        args: [bentoBoxAddress, factory, initCodeHash],
         log: true,
         deterministicDeployment: false,
         gasLimit: 1300000,
@@ -565,4 +579,39 @@ module.exports = async function (hre) {
             gasPrice: finalGasPrice,
         })*/
     }
+}
+
+function verify(apikey, address, source, contractname, license, runs) {
+    var request = require("request")
+    request.post(
+        "//api.etherscan.io/api",
+        {
+            apikey: apikey, //A valid API-Key is required
+            module: "contract", //Do not change
+            action: "verifysourcecode", //Do not change
+            contractaddress: address, //Contract Address starts with 0x...
+            sourceCode: source, //Contract Source Code (Flattened if necessary)
+            contractname: contractname, //ContractName (if codeformat=solidity-standard-json-input, then enter contractname as ex: erc20.sol:erc20)
+            compilerversion: "v0.6.12+commit.27d51765", // see https://etherscan.io/solcversions for list of support versions
+            optimizationUsed: 1, //0 = No Optimization, 1 = Optimization used (applicable when codeformat=solidity-single-file)
+            runs: runs, //set to 200 as default unless otherwise  (applicable when codeformat=solidity-single-file)
+            constructorArguements: $("#constructorArguements").val(), //if applicable
+            evmversion: $("#evmVersion").val(), //leave blank for compiler default, homestead, tangerineWhistle, spuriousDragon, byzantium, constantinople, petersburg, istanbul (applicable when codeformat=solidity-single-file)
+            licenseType: license, //Valid codes 1-12 where 1=No License .. 12=Apache 2.0, see https://etherscan.io/contract-license-types
+        },
+        function (err, res, body) {
+            console.log(res)
+            /*if (result.status == "1") {
+            //1 = submission success, use the guid returned (result.result) to check the status of your submission.
+            // Average time of processing is 30-60 seconds
+            document.getElementById("postresult").innerHTML = result.status + ";" + result.message + ";" + result.result;
+            // result.result is the GUID receipt for the submission, you can use this guid for checking the verification status
+        } else {
+            //0 = error
+            document.getElementById("postresult").innerHTML = result.status + ";" + result.message + ";" + result.result;
+        }
+        console.log("status : " + result.status);
+        console.log("result : " + result.result);*/
+        }
+    )
 }
