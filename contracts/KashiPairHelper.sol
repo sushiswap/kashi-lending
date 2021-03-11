@@ -15,6 +15,8 @@ contract KashiPairHelper {
     using BoringERC20 for IERC20;
     using RebaseLibrary for Rebase;
 
+    uint256 public constant APY_PRECISION = 1e8;
+
     /// @dev Helper function to calculate the collateral shares that are needed for `borrowPart`,
     /// taking the current exchange rate into account.
     function getCollateralSharesForBorrowPart(KashiPair kashiPair, uint256 borrowPart) public view returns (uint256) {
@@ -77,6 +79,7 @@ contract KashiPairHelper {
         uint256 currentExchangeRate;
         uint256 oracleExchangeRate;
         uint64 interestPerSecond;
+        uint256 assetAPY;
     }
 
     function pollPairs(address who, KashiPair[] calldata addresses) external view returns (PairPollInfo memory, PairPoll[] memory) {
@@ -89,28 +92,34 @@ contract KashiPairHelper {
                 pairs[i].userCollateralAmount = addresses[i].bentoBox().toAmount(addresses[i].collateral(), addresses[i].userCollateralShare(who), false);
             }
             {
-            Rebase memory totalAsset;
-            {
-                (uint128 totalAssetElastic, uint128 totalAssetBase) = addresses[i].totalAsset();
-                pairs[i].totalAssetAmount = addresses[i].bentoBox().toAmount(addresses[i].asset(), totalAssetElastic, false);
-                totalAsset = Rebase(totalAssetElastic, totalAssetBase);
-            }
+                Rebase memory totalAsset;
+                {
+                    (uint128 totalAssetElastic, uint128 totalAssetBase) = addresses[i].totalAsset();
+                    pairs[i].totalAssetAmount = addresses[i].bentoBox().toAmount(addresses[i].asset(), totalAssetElastic, false);
+                    totalAsset = Rebase(totalAssetElastic, totalAssetBase);
+                }
                 pairs[i].userAssetAmount = addresses[i].bentoBox().toAmount(addresses[i].asset(), totalAsset.toElastic(addresses[i].balanceOf(who), false), false);
                 if(pairs[i].userAssetAmount > 0) {
                     info.suppliedPairCount += 1;
                 }
             }
             {
-                pairs[i].currentExchangeRate = addresses[i].exchangeRate();
-                (, pairs[i].oracleExchangeRate) = addresses[i].oracle().peek(addresses[i].oracleData());
-                (pairs[i].interestPerSecond, ,) = addresses[i].accrueInfo();
+                {
+                    pairs[i].currentExchangeRate = addresses[i].exchangeRate();
+                    (, pairs[i].oracleExchangeRate) = addresses[i].oracle().peek(addresses[i].oracleData());
+                    (pairs[i].interestPerSecond, ,) = addresses[i].accrueInfo();
+                }
+                (uint128 totalBorrowAmount, uint128 totalBorrowPart) = addresses[i].totalBorrow();
+                Rebase memory totalBorrow = Rebase(totalBorrowAmount, totalBorrowPart);
+                pairs[i].totalBorrowAmount = totalBorrowAmount;
+                pairs[i].userBorrowAmount = totalBorrow.toElastic(addresses[i].userBorrowPart(who), false);
+                if(pairs[i].userBorrowAmount > 0) {
+                    info.borrowPairCount += 1;
+                }
             }
-            (uint128 totalBorrowAmount, uint128 totalBorrowPart) = addresses[i].totalBorrow();
-            Rebase memory totalBorrow = Rebase(totalBorrowAmount, totalBorrowPart);
-            pairs[i].totalBorrowAmount = totalBorrowAmount;
-            pairs[i].userBorrowAmount = totalBorrow.toElastic(addresses[i].userBorrowPart(who), false);
-            if(pairs[i].userBorrowAmount > 0) {
-                info.borrowPairCount += 1;
+            {
+                uint256 yearlyInterest = pairs[i].totalBorrowAmount.mul(pairs[i].interestPerSecond).mul(365 days) / 1e18;
+                pairs[i].assetAPY = yearlyInterest.mul(APY_PRECISION) / pairs[i].totalBorrowAmount.add(pairs[i].totalAssetAmount);
             }
         }
 
