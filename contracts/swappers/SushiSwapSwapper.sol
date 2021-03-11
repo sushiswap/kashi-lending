@@ -56,7 +56,7 @@ contract SushiSwapSwapper is ISwapper {
 
         (uint256 reserve0, uint256 reserve1, ) = pair.getReserves();
         uint256 amountTo;
-        if (uint160(toToken) > uint160(fromToken)) {
+        if (toToken > fromToken) {
             amountTo = getAmountOut(amountFrom, reserve0, reserve1);
             pair.swap(0, amountTo, address(bentoBox), new bytes(0));
         } else {
