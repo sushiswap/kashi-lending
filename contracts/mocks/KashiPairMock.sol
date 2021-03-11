@@ -13,8 +13,4 @@ contract KashiPairMock is KashiPair {
         accrue();
         accrue();
     }
-
-    function setInterestPerSecond(uint64 interestPerSecond) public {
-        accrueInfo.interestPerSecond = interestPerSecond;
-    }
 }
