@@ -671,8 +671,8 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
         uint256 allBorrowAmount;
         uint256 allBorrowPart;
         Rebase memory _totalBorrow = totalBorrow;
-        uint256 len = users.length;
-        for (uint256 i = 0; i < len; i++) {
+        Rebase memory bentoBoxTotals = bentoBox.totals(collateral);
+        for (uint256 i = 0; i < users.length; i++) {
             address user = users[i];
             if (!_isSolvent(user, open, _exchangeRate)) {
                 uint256 borrowPart;
@@ -683,8 +683,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
                 }
                 uint256 borrowAmount = _totalBorrow.toElastic(borrowPart, false);
                 uint256 collateralShare =
-                    bentoBox.toShare(
-                        collateral,
+                    bentoBoxTotals.toBase(
                         borrowAmount.mul(LIQUIDATION_MULTIPLIER).mul(_exchangeRate) /
                             (LIQUIDATION_MULTIPLIER_PRECISION * EXCHANGE_RATE_PRECISION),
                         false
