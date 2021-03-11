@@ -65,7 +65,7 @@ describe("KashiPair Basic", function () {
             await cmd.deploy("erc20", "ERC20Mock", 10000000)
             await cmd.deploy("kashiPair", "KashiPairMock", this.bentoBox.address)
             await cmd.deploy("oracle", "OracleMock")
-            await cmd.deploy("swapper", "SushiSwapSwapper", this.bentoBox.address, this.factory.address)
+            await cmd.deploy("swapper", "SushiSwapSwapper", this.bentoBox.address, this.factory.address, await this.factory.pairCodeHash())
             await this.kashiPair.setSwapper(this.swapper.address, true)
 
             await this.oracle.set(getBigNumber(1, 28))
@@ -124,6 +124,13 @@ describe("KashiPair Basic", function () {
     })
 
     describe("Init", function () {
+        it("Reverts init for collateral address 0", async function () {
+            const oracleData = await this.oracle.getDataParameter()
+            await expect(
+                cmd.addKashiPair("pairHelper", this.bentoBox, this.kashiPair, ADDRESS_ZERO, this.b, this.oracle, oracleData)
+            ).to.be.revertedWith("KashiPair: bad pair")
+        })
+
         it("Reverts init for initilised pair", async function () {
             await expect(this.pairHelper.contract.init(this.pairHelper.initData)).to.be.revertedWith("KashiPair: already initialized")
         })
@@ -233,7 +240,9 @@ describe("KashiPair Basic", function () {
             await this.pairHelper.contract.accrue()
             await advanceTimeAndBlock(30000, ethers)
             await this.pairHelper.contract.accrue()
-            await advanceTimeAndBlock(3000000, ethers)
+            await advanceTimeAndBlock(1500000, ethers)
+            await this.pairHelper.contract.accrue()
+            await advanceTimeAndBlock(1500000, ethers)
             await this.pairHelper.contract.accrue()
 
             expect((await this.pairHelper.contract.accrueInfo()).interestPerSecond).to.be.equal(68493150675000)
@@ -255,8 +264,15 @@ describe("KashiPair Basic", function () {
         //
     })
 
-    describe("Update Exchange Rate", function () {
-        //
+    describe("Update Exchange Rate", async function () {
+        it("should update exchange rate", async function () {
+            const ACTION_UPDATE_EXCHANGE_RATE = 11
+            await this.pairHelper.contract.cook(
+                [ACTION_UPDATE_EXCHANGE_RATE],
+                [0],
+                [defaultAbiCoder.encode(["bool", "uint256", "uint256"], [true, 0, 0])]
+            )
+        })
     })
 
     describe("Add Asset", function () {
@@ -785,7 +801,14 @@ describe("KashiPair Basic", function () {
                 cmd.borrow(sansBorrowFee(getBigNumber(75, 8))),
                 cmd.accrue(),
             ])
-            await cmd.deploy("invalidSwapper", "SushiSwapSwapper", this.bentoBox.address, this.factory.address)
+
+            await cmd.deploy(
+                "invalidSwapper",
+                "SushiSwapSwapper",
+                this.bentoBox.address,
+                this.factory.address,
+                await this.factory.pairCodeHash()
+            )
             await expect(
                 this.pairHelper.contract
                     .connect(this.bob)
