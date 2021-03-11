@@ -2,13 +2,13 @@
 # yarn lockfile v1
 
 
-"@boringcrypto/boring-solidity@boringcrypto/BoringSolidity#0257ecf":
-  version "1.1.0"
-  resolved "https://codeload.github.com/boringcrypto/BoringSolidity/tar.gz/0257ecf8a40fa5b636a53444e50cb188a140a1cd"
-
 "@boringcrypto/boring-solidity@boringcrypto/BoringSolidity#23cf083faf5c3217336a154f6593e42e6cd87d05":
   version "1.2.0"
   resolved "https://codeload.github.com/boringcrypto/BoringSolidity/tar.gz/23cf083faf5c3217336a154f6593e42e6cd87d05"
+
+"@boringcrypto/boring-solidity@boringcrypto/BoringSolidity#2e434b3517e134503379c4655194ac97e18acc02":
+  version "1.1.0"
+  resolved "https://codeload.github.com/boringcrypto/BoringSolidity/tar.gz/2e434b3517e134503379c4655194ac97e18acc02"
 
 "@ensdomains/ens@^0.4.4":
   version "0.4.5"
@@ -605,11 +605,11 @@
   resolved "https://registry.yarnpkg.com/@solidity-parser/parser/-/parser-0.12.0.tgz#18a0fb2a9d2484b23176f63b16093c64794fc323"
   integrity sha512-DT3f/Aa4tQysZwUsuqBwvr8YRJzKkvPUKV/9o2/o5EVw3xqlbzmtx4O60lTUcZdCawL+N8bBLNUyOGpHjGlJVQ==
 
-"@sushiswap/bentobox-sdk@sushiswap/bentobox-sdk#f5ca20dace7ecb4343321820acc6fbef2502e698":
-  version "1.0.0"
-  resolved "https://codeload.github.com/sushiswap/bentobox-sdk/tar.gz/f5ca20dace7ecb4343321820acc6fbef2502e698"
+"@sushiswap/bentobox-sdk@sushiswap/bentobox-sdk#c11539f613275e97c9a166414e72ee432e629c52":
+  version "1.0.1"
+  resolved "https://codeload.github.com/sushiswap/bentobox-sdk/tar.gz/c11539f613275e97c9a166414e72ee432e629c52"
   dependencies:
-    "@boringcrypto/boring-solidity" boringcrypto/BoringSolidity#0257ecf
+    "@boringcrypto/boring-solidity" boringcrypto/BoringSolidity#2e434b3517e134503379c4655194ac97e18acc02
 
 "@sushiswap/core@^1.4.2":
   version "1.4.2"
