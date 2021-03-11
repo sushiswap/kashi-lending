@@ -83,7 +83,7 @@ contract SushiSwapSwapper is ISwapper {
         uint256 amountToExact = bentoBox.toAmount(toToken, shareToExact, true);
 
         uint256 amountFrom;
-        if (pair.token0() == address(fromToken)) {
+        if (toToken > fromToken) {
             amountFrom = getAmountIn(amountToExact, reserve0, reserve1);
             (, shareUsed) = bentoBox.withdraw(fromToken, address(this), address(pair), amountFrom, 0);
             pair.swap(0, amountToExact, address(bentoBox), "");
