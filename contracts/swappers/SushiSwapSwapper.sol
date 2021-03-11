@@ -10,12 +10,18 @@ contract SushiSwapSwapper is ISwapper {
     using BoringMath for uint256;
 
     // Local variables
-    IBentoBoxV1 public bentoBox;
-    IUniswapV2Factory public factory;
+    IBentoBoxV1 public immutable bentoBox;
+    IUniswapV2Factory public immutable factory;
+    bytes32 public pairCodeHash;
 
-    constructor(IBentoBoxV1 bentoBox_, IUniswapV2Factory factory_) public {
+    constructor(
+        IBentoBoxV1 bentoBox_,
+        IUniswapV2Factory factory_,
+        bytes32 pairCodeHash_
+    ) public {
         bentoBox = bentoBox_;
         factory = factory_;
+        pairCodeHash = pairCodeHash_;
     }
 
     // Given an input amount of an asset and pair reserves, returns the maximum output amount of the other asset
@@ -50,13 +56,19 @@ contract SushiSwapSwapper is ISwapper {
         uint256 shareToMin,
         uint256 shareFrom
     ) public override returns (uint256 extraShare, uint256 shareReturned) {
-        IUniswapV2Pair pair = IUniswapV2Pair(factory.getPair(address(fromToken), address(toToken)));
+        (IERC20 token0, IERC20 token1) = fromToken < toToken ? (fromToken, toToken) : (toToken, fromToken);
+        IUniswapV2Pair pair =
+            IUniswapV2Pair(
+                uint256(
+                    keccak256(abi.encodePacked(hex"ff", factory, keccak256(abi.encodePacked(address(token0), address(token1))), pairCodeHash))
+                )
+            );
 
         (uint256 amountFrom, ) = bentoBox.withdraw(fromToken, address(this), address(pair), 0, shareFrom);
 
         (uint256 reserve0, uint256 reserve1, ) = pair.getReserves();
         uint256 amountTo;
-        if (pair.token0() == address(fromToken)) {
+        if (toToken > fromToken) {
             amountTo = getAmountOut(amountFrom, reserve0, reserve1);
             pair.swap(0, amountTo, address(bentoBox), new bytes(0));
         } else {
@@ -77,13 +89,21 @@ contract SushiSwapSwapper is ISwapper {
         uint256 shareFromSupplied,
         uint256 shareToExact
     ) public override returns (uint256 shareUsed, uint256 shareReturned) {
-        IUniswapV2Pair pair = IUniswapV2Pair(factory.getPair(address(fromToken), address(toToken)));
+        IUniswapV2Pair pair;
+        {
+            (IERC20 token0, IERC20 token1) = fromToken < toToken ? (fromToken, toToken) : (toToken, fromToken);
+            pair = IUniswapV2Pair(
+                uint256(
+                    keccak256(abi.encodePacked(hex"ff", factory, keccak256(abi.encodePacked(address(token0), address(token1))), pairCodeHash))
+                )
+            );
+        }
         (uint256 reserve0, uint256 reserve1, ) = pair.getReserves();
 
         uint256 amountToExact = bentoBox.toAmount(toToken, shareToExact, true);
 
         uint256 amountFrom;
-        if (pair.token0() == address(fromToken)) {
+        if (toToken > fromToken) {
             amountFrom = getAmountIn(amountToExact, reserve0, reserve1);
             (, shareUsed) = bentoBox.withdraw(fromToken, address(this), address(pair), amountFrom, 0);
             pair.swap(0, amountToExact, address(bentoBox), "");
