@@ -43,3 +43,5 @@ function computeFee\(uint256 amount\) internal virtual returns \(uint256\) \{ re
 # fix back constructor
 perl -0777 -i -pe 's/constructor\(IBentoBoxV1 bentoBox_\) public virtual / constructor\(IBentoBoxV1 bentoBox_\) public  /g' contracts/flat/KashiPairFlat.sol 
 perl -0777 -i -pe 's/constructor\(IBentoBoxV1 bentoBox_\) public virtual / constructor\(IBentoBoxV1 bentoBox_\) public  /g' contracts/KashiPair.sol
+perl -0777 -i -pe 's/constructor\(\) public virtual/constructor\(\) public/g' contracts/flat/KashiPairFlat.sol
+perl -0777 -i -pe 's/constructor\(\) public virtual/constructor\(\) public/g' contracts/KashiPair.sol
