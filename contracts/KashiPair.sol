@@ -33,7 +33,7 @@ import "./interfaces/ISwapper.sol";
 /// @title KashiPair
 /// @dev This contract allows contract calls to any contract (except BentoBox)
 /// from arbitrary callers thus, don't trust calls from this contract in any circumstances.
-contract KashiPair is ERC20, BoringOwnable, IMasterContract {
+contract KashiPairMediumRiskV1 is ERC20, BoringOwnable, IMasterContract {
     using BoringMath for uint256;
     using BoringMath128 for uint128;
     using RebaseLibrary for Rebase;
@@ -52,7 +52,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
 
     // Immutables (for MasterContract and all clones)
     IBentoBoxV1 public immutable bentoBox;
-    KashiPair public immutable masterContract;
+    KashiPairMediumRiskV1 public immutable masterContract;
 
     // MasterContract variables
     address public feeTo;
@@ -652,7 +652,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
 
     /// @notice Handles the liquidation of users' balances, once the users' amount of collateral is too low.
     /// @param users An array of user addresses.
-    /// @param maxBorrowParts A one-to-one mapping to `users`, contains maximum (partial) borrow amounts (to liquidate) of the respective user.
+    /// @param maxBorrowParts A one-to-one mapping to `users`, contains partial borrow amounts (to liquidate) of the respective user.
     /// @param to Address of the receiver in open liquidations if `swapper` is zero.
     /// @param swapper Contract address of the `ISwapper` implementation. Swappers are restricted for closed liquidations. See `setSwapper`.
     /// @param open True to perform a open liquidation else False.
