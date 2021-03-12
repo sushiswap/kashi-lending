@@ -24,11 +24,10 @@ methods {
 	// Bentobox functions
 	bentoBox.transfer(address token, address from, address to, uint256 share) => DISPATCHER(true)
 	bentoBox.balanceOf(address token, address user) returns (uint256) envfree
-	bentoBox.assumeRatio(address token, uint ratio) envfree;
+	bentoBox.assumeRatio(address token, uint ratio) envfree
 	bentoBox.toShare(address token, uint256 amount, bool roundUp) returns (uint256) envfree
 	bentoBox.toAmount(address token, uint256 share, bool roundUp) returns (uint256) envfree
-	
-	deposit(address token, address from, address to, uint256 amount, uint256 share) => DISPATCHER(true)
+	bentoBox.deposit(address token, address from, address to, uint256 amount, uint256 share) => DISPATCHER(true)
 	
 	// Swapper
 	swap(address fromToken, address toToken, address recipient, uint256 amountToMin, uint256 shareFrom) => DISPATCHER(true)
@@ -40,6 +39,10 @@ methods {
 
 	// Accrue
 	FULL_UTILIZATION() returns (uint256) envfree
+
+	// Cook
+	solventCheckByModifier() returns bool envfree
+	needsSolvencyCheck() returns bool envfree
 }
 
 function setup() {
@@ -47,6 +50,12 @@ function setup() {
 	require assetInstance == asset();
 }
 
+definition ACTION_ADD_ASSET() returns uint8 =  1;
+definition ACTION_REPAY() returns uint8 = 2;
+definition ACTION_REMOVE_ASSET() returns uint8 = 3;
+definition ACTION_REMOVE_COLLATERAL() returns uint8 = 4;
+definition ACTION_BORROW() returns uint8 = 5;
+definition ACTION_ADD_COLLATERAL() returns uint8 = 10;
 definition MAX_UINT256() returns uint256 =
 	0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
 	
@@ -66,7 +75,7 @@ ghost userBorrowSum() returns uint256 {
 }
 
 // update userCollateralSum on every assginment to userCollateralShare
-hook Sstore /* (slot 14) */ userCollateralShare [KEY uint a] uint share (uint oldShare) STORAGE {
+hook Sstore userCollateralShare [KEY uint a] uint share (uint oldShare) STORAGE {
 	havoc userCollateralSum assuming userCollateralSum@new() == userCollateralSum@old() + share - oldShare; 
 }
 
@@ -76,7 +85,7 @@ hook Sload uint256 share userCollateralShare[KEY uint a] STORAGE {
 }
 
 // update userBalanceOfSum on every assginment to balanceOf
-hook Sstore /* (slot 6) */ balanceOf [KEY uint a] uint balance (uint oldBalance) STORAGE {
+hook Sstore balanceOf [KEY uint a] uint balance (uint oldBalance) STORAGE {
 	havoc userBalanceOfSum assuming userBalanceOfSum@new() == userBalanceOfSum@old() + balance - oldBalance; 
 }
 
@@ -86,7 +95,7 @@ hook Sload uint256 b balanceOf[KEY uint a] STORAGE {
 }
 
 // update userBorrowSum on every assginment to balanceOf
-hook Sstore /* (slot 15) */ userBorrowPart [KEY uint a] uint part (uint oldPart) STORAGE {
+hook Sstore userBorrowPart [KEY uint a] uint part (uint oldPart) STORAGE {
 	havoc userBorrowSum assuming userBorrowSum@new() == userBorrowSum@old() + part - oldPart &&userBorrowSum@old() >= oldPart; 
 }
 // when loading userBorrowPart[a] assume that the sum is more than the loaded value
@@ -112,37 +121,45 @@ invariant validityOfTotalSupply()
 invariant integrityOfZeroBorrowAssets()
 	totalBorrowElastic() >= totalBorrowBase() && 
 	((totalBorrowElastic() == 0) <=> (totalBorrowBase() == 0)) {
-		//prove this only on a simplified version 
+		// prove this only on a simplified version 
 		preserved repay(address to, bool skim, uint256 amount) with (env e) {
 			require false; 
 		}
 
-		preserved liquidate(address[] users, uint256[] amounts, address to, address swap, bool open) with (env e){
+		preserved liquidate(address[] users, uint256[] amounts, address to, address swap, bool open) with (env e) {
 			require false; 
 		}
-
-
 	}
 
 // INVARIANTS implemented as rules
 
 rule totalCollateralLeBentoBoxBalanceOf(method f) { // Le: less than or equal to
 	setup();
-	require bentoBox.balanceOf(collateralInstance, currentContract) >= totalCollateralShare();  
+
+	require bentoBox.balanceOf(collateralInstance, currentContract) >= totalCollateralShare(); 
+
 	env e;
 	calldataarg args;
+
 	require e.msg.sender != currentContract;
-	f(e,args);
+
+	f(e, args);
+
 	assert bentoBox.balanceOf(collateralInstance, currentContract) >= totalCollateralShare(); 
 }
 
 rule totalAssetElasticLeBentoBoxBalanceOf(method f) { // Le: less than or equal to
 	setup();
-	require bentoBox.balanceOf(assetInstance, currentContract) >= totalAssetElastic();  
+
+	require bentoBox.balanceOf(assetInstance, currentContract) >= totalAssetElastic();
+
 	env e;
 	calldataarg args;
+
 	require e.msg.sender != currentContract;
-	f(e,args);
+
+	f(e, args);
+
 	assert bentoBox.balanceOf(assetInstance, currentContract) >= totalAssetElastic(); 
 }
 
@@ -154,11 +171,10 @@ function validState() {
 
 	// rule totalCollateralLeBentoBoxBalanceOf
 	require bentoBox.balanceOf(collateralInstance, currentContract) >= totalCollateralShare();
+
 	// rule totalAssetElasticLeBentoBoxBalanceOf
 	require bentoBox.balanceOf(assetInstance, currentContract) >= totalAssetElastic();
 }
-
-
 
 // RULES
 
@@ -190,14 +206,13 @@ rule noChangeToOthersAssetFraction(address from, address to, address other,
 	uint256 _othersAssetFraction = balanceOf(other);
 
 	// other != msg.sender inside callFunctionWithParams
-	// might want to remove this method, it can be confusing for some people
 	callFunctionWithParams(from, to, other, amount, share, skim, f);
 
 	uint256 othersAssetFraction_ = balanceOf(other);
 
-	// should I include f.selector == addAsset, transfer, or transferFrom
-	// (logically doesn't matter because to is only limited in those cases)
-	if (other == to || other == feeTo() ) { 
+	// f.selector == addAsset, transfer, or transferFrom
+	// to is only limited in those cases
+	if (other == to || other == feeTo()) { 
 		assert (_othersAssetFraction <= othersAssetFraction_, 
 				"other's asset fraction changed");
 	} else {
@@ -217,15 +232,16 @@ rule noChangeToOthersCollateralShare(address other, address to, bool skim,
 
 	if (f.selector == addCollateral(address, bool, uint256).selector) {
 		addCollateral(e, to, skim, share);
-	} else if (f.selector != liquidate(address[],uint256[],address,address,bool).selector) {
+	} else if (f.selector != liquidate(address[], uint256[], address, address, bool).selector) {
+		// in case of liquidate its fine to reduce the collateral share
 		calldataarg args;
 		f(e, args);
 	}
 	
 	uint256 othersCollateralShare_ = userCollateralShare(other);
 
-	// in case of liquidate its fine to reduce the collateral share, work with Nurit to handle liquidate
-	if (other == to) { // f.selector == addCollateral(address, bool, uint256).selector && should I include this? (logically doesn't matter)
+	// to is only limited when f.selector == addCollateral(address, bool, uint256).selector
+	if (other == to) { 
 		assert (_othersCollateralShare <= othersCollateralShare_, 
 				"other's collateral share changed");
 	} else {
@@ -234,38 +250,40 @@ rule noChangeToOthersCollateralShare(address other, address to, bool skim,
 	}
 }
 
-rule integrityOfSkimAddCollateral(address to, uint256 share){
+rule integrityOfSkimAddCollateral(address to, uint256 share, address from) {
 	validState();
-	// need two differnet env since they are calling different contracts
-	env e;
+
+	// need two different env since we are calling different contracts
 	env eBento;
+	env e;
+
 	uint256 _collateralShare = userCollateralShare(to);
 	uint256 _totalCollateralShare = totalCollateralShare();
 
 	require eBento.msg.sender == e.msg.sender;
 	require eBento.block.number == e.block.number;
 	require eBento.block.timestamp == e.block.timestamp;
+
 	require e.msg.value == 0;
 	require e.msg.sender != currentContract && e.msg.sender != bentoBox;
-	//require _collateralShare + share <= MAX_UINT256();
+	require from == e.msg.sender;
 
 	require  bentoBox.balanceOf(collateralInstance, currentContract) ==  _totalCollateralShare; 
 	require  _collateralShare <= _totalCollateralShare;
 
-	//just to get a nice coutner exmple
-	//require _totalCollateralShare < 100;
-	address from;
-	require from == e.msg.sender;
-	//transfer shares to lendingPair account in BentoBox 
+	// transfer shares to lendingPair account in BentoBox 
 	sinvoke bentoBox.transfer(eBento, collateralInstance, from, currentContract, share);
-	// check if add colalteral is sucessfull
+
+	// check if add collateral is successful
 	bool skim = true;
+
 	addCollateral@withrevert(e, to, skim, share);
+
 	uint256 collateralShare_ = userCollateralShare(to);
 	bool successful = !lastReverted;
+
 	assert successful && collateralShare_ == _collateralShare + share;
 }
-
 
 // totalCollateralShare and userCollateralShare shouldn't change if we add 
 // "x" share worth of collateral then remove "x" share worth of collateral
@@ -273,20 +291,17 @@ rule addThenRemoveCollateral(address to, bool skim, uint256 share) {
 	validState();
 	env e;
 
-	// should something different happen in the case when skim = true?
 	require e.msg.sender == to && to != 0; 
 
 	uint256 _totalCollateralShare = totalCollateralShare();
 	uint256 _userCollateralShare = userCollateralShare(to); 
 
 	addCollateral(e, to, skim, share);
-	
 	removeCollateral(e, to, share);
 
 	uint256 totalCollateralShare_ = totalCollateralShare();
 	uint256 userCollateralShare_ = userCollateralShare(to);
 
-	//assert(solvent => succeddToRemove, "can not remove collateral");
 	assert (_totalCollateralShare == totalCollateralShare_, 
 			"total asset base changed");
 
@@ -294,49 +309,30 @@ rule addThenRemoveCollateral(address to, bool skim, uint256 share) {
 			"balance of user changed");
 }
 
-
 rule solvetCloseIsSolventOpen(address user, uint256 exchangeRate) {
 	validState();
-	uint256 totalBorrowBase_ = totalBorrowBase(); // not sure about this
+
+	uint256 totalBorrowBase_ = totalBorrowBase();
 	uint256 totalCollateralShare_ = totalCollateralShare();
+
 	require userCollateralShare(user) <= totalCollateralShare_;
 	require userBorrowPart(user) <= totalBorrowBase_;
-	assert origIsSolvent(user, false, exchangeRate) => origIsSolvent(user, true, exchangeRate), "close solvent is not open solvent" ;
+
+	assert origIsSolvent(user, false, exchangeRate)
+	 								=> origIsSolvent(user, true, exchangeRate),
+						"close solvent is not open solvent" ;
 }
 
 rule solventUser(address user, bool open, method f) {
 	validState();
+
 	require isSolvent(user, open);
+
 	env e;
 	calldataarg args;
 	f(e, args);
-	assert isSolvent(user, open), "by perfomring an operation reached an insolvent state";
-}
-
-// Helper Functions
-
-// easy to use dispatcher (currently only being used by noChangeToOthersAssetFraction)
-// WARNING: Be careful if you limit one of the parameters, it can be limited for 
-// many functions.
-function callFunctionWithParams(address from, address to, address other, 
-								uint256 amount, uint256 share, bool skim,
-								method f) {
-	env e;
-
-	require other != e.msg.sender;
-
-	if (f.selector == addAsset(address, bool, uint256).selector) {
-		addAsset(e, to, skim, share);
-	} else if (f.selector == transferFrom(address, address, uint256).selector) {
-		require( balanceOf(from) + balanceOf(to) <= MAX_UINT256());
-		transferFrom(e, from, to, amount); 
-	} else if  (f.selector == transfer(address, uint256).selector) {
-		require( balanceOf(e.msg.sender) + balanceOf(to) <= MAX_UINT256());
-		transfer(e, to, amount); // IERC20 function
-	} else {
-		calldataarg args;
-		f(e,args);
-	}
+	
+	assert isSolvent(user, open), "by performing an operation reached an insolvent state";
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -365,27 +361,93 @@ rule integrityOfAccrueInterest() {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-//                                Liquidatity Rules                           //
+//                              Liquidatity Rules                             //
 ////////////////////////////////////////////////////////////////////////////////
 rule integrityOfLiquidate() {
 	validState();
 	
 	env e;
+
 	uint256 collateralBalanceBefore = bentoBox.balanceOf(collateralInstance, currentContract);
 	uint256 assetBalanceBefore = bentoBox.balanceOf(assetInstance, currentContract);
+
 	// when there is excess balance in bentobox then the fee paid on the extra can be more than the asset gained from liquidation
 	require totalAssetElastic() == assetBalanceBefore;
 	require e.msg.sender != currentContract;
+
 	sinvoke bentoBox.assumeRatio(collateralInstance, 2);
+
 	calldataarg args;
 	liquidate(e, args);
+
 	uint256 collateralBalanceAfter = bentoBox.balanceOf(collateralInstance, currentContract);
 	uint256 assetBalanceAfter = bentoBox.balanceOf(assetInstance, currentContract);
+
 	assert (assetBalanceAfter >= assetBalanceBefore,
 			"asset balance decreased");
+
 	assert (collateralBalanceAfter <= collateralBalanceBefore,
 			"collateral balance increased");
+			
 	assert (assetBalanceAfter > assetBalanceBefore) <=> (collateralBalanceAfter < collateralBalanceBefore),
 			"only one balance changed";
 			
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//                                  Cook Rules                                //
+////////////////////////////////////////////////////////////////////////////////
+rule integrityOfSolvencyCheck(method f) {
+	env e;
+	calldataarg args;
+	uint8 action;
+	require solventCheckByModifier() == false;
+	require needsSolvencyCheck() == false;
+	if (f.selector == addAsset(address,bool,uint256).selector)
+		require action == ACTION_ADD_ASSET();
+	else if (f.selector == repay(address,bool,uint256).selector)
+		require action == ACTION_REPAY();
+	else if (f.selector == removeAsset(address,uint256).selector)
+		require action == ACTION_REMOVE_ASSET();
+	else if (f.selector == removeCollateral(address,uint256).selector)
+		require action == ACTION_REMOVE_COLLATERAL();
+	else if (f.selector == borrow(address,uint256).selector)
+		require action == ACTION_BORROW();
+	else if (f.selector == addCollateral(address,bool,uint256).selector)
+		require action == ACTION_ADD_COLLATERAL();
+	else
+		require action == 0 || ( action > 5 && action != 10);
+	
+	storage init = lastStorage;
+	symbolicCook(e,action);
+	bool setSolvency = needsSolvencyCheck();
+
+	f(e,args) at init;
+	assert solventCheckByModifier() <=> setSolvency;
+}
+
+// Helper Functions
+
+// easy to use dispatcher (currently only being used by noChangeToOthersAssetFraction)
+// WARNING: Be careful if you limit one of the parameters, it can be limited for 
+// many functions.
+function callFunctionWithParams(address from, address to, address other, 
+								uint256 amount, uint256 share, bool skim,
+								method f) {
+	env e;
+
+	require other != e.msg.sender;
+
+	if (f.selector == addAsset(address, bool, uint256).selector) {
+		addAsset(e, to, skim, share);
+	} else if (f.selector == transferFrom(address, address, uint256).selector) {
+		require( balanceOf(from) + balanceOf(to) <= MAX_UINT256());
+		transferFrom(e, from, to, amount); 
+	} else if  (f.selector == transfer(address, uint256).selector) {
+		require( balanceOf(e.msg.sender) + balanceOf(to) <= MAX_UINT256());
+		transfer(e, to, amount); // IERC20 function
+	} else {
+		calldataarg args;
+		f(e,args);
+	}
 }

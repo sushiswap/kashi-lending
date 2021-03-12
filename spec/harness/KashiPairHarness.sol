@@ -5,9 +5,6 @@ import "../../contracts/KashiPair.sol";
 import "@sushiswap/bentobox-sdk/contracts/IBentoBoxV1.sol";
 
 contract KashiPairHarness is KashiPair {
-	/*uint256 private constant UTILIZATION_PRECISION = 1e18;
-    uint256 public constant FULL_UTILIZATION = 1e18;
-    */
 	constructor() KashiPair(IBentoBoxV1(0)) public { }
 
 	// for invariants we need a function that simulate the constructor 
@@ -43,7 +40,6 @@ contract KashiPairHarness is KashiPair {
 		return accrueInfo.feesEarnedFraction;
 	}
 
-    
     mapping(address => bool) public closeSolvent;
 	mapping(address => bool) public openSolvent;
 
@@ -109,17 +105,16 @@ contract KashiPairHarness is KashiPair {
         totalAsset.base = _totalAsset.base.add(feeFraction.to128());
         totalBorrow = _totalBorrow;
         accrueInfo = _accrueInfo;
+
         return (fullAssetAmount, feeAmount, (uint256(_totalBorrow.elastic).mul(UTILIZATION_PRECISION) / fullAssetAmount));
     }
 
     function init(bytes calldata b) public payable override {
-        //issue with packing
+        // issue with packing
     }
-
 
     bool public solventCheckByModifier;
 	bool public needsSolvencyCheck;
-
 
 	modifier solvent() override {
         _;
@@ -127,70 +122,72 @@ contract KashiPairHarness is KashiPair {
 		solventCheckByModifier = true;
     }
 
-
-	function symbolicCook(
-        uint8 action      
-    ) external virtual payable returns (uint256 value1, uint256 value2) {
+	function symbolicCook(uint8 action) external virtual payable
+                                    returns (uint256 value1, uint256 value2) {
         CookStatus memory status;
+
             if (!status.hasAccrued && action < 10) {
                 accrue();
                 status.hasAccrued = true;
             }
+
             if (action == ACTION_ADD_COLLATERAL) {
-                //(int256 share, address to, bool skim) = abi.decode(datas[i], (int256, address, bool));
-               // addCollateral(to, skim, _num(share, value1, value2));
+                // (int256 share, address to, bool skim) = abi.decode(datas[i], (int256, address, bool));
+                // addCollateral(to, skim, _num(share, value1, value2));
             } else if (action == ACTION_ADD_ASSET) {
-                //(int256 share, address to, bool skim) = abi.decode(datas[i], (int256, address, bool));
-              //  value1 = _addAsset(to, skim, _num(share, value1, value2));
+                // (int256 share, address to, bool skim) = abi.decode(datas[i], (int256, address, bool));
+                // value1 = _addAsset(to, skim, _num(share, value1, value2));
             } else if (action == ACTION_REPAY) {
-                //(int256 part, address to, bool skim) = abi.decode(datas[i], (int256, address, bool));
-              //  _repay(to, skim, _num(part, value1, value2));
+                // (int256 part, address to, bool skim) = abi.decode(datas[i], (int256, address, bool));
+                // _repay(to, skim, _num(part, value1, value2));
             } else if (action == ACTION_REMOVE_ASSET) {
-              //  (int256 fraction, address to) = abi.decode(datas[i], (int256, address));
-              //  value1 = _removeAsset(to, _num(fraction, value1, value2));
+                // (int256 fraction, address to) = abi.decode(datas[i], (int256, address));
+                // value1 = _removeAsset(to, _num(fraction, value1, value2));
             } else if (action == ACTION_REMOVE_COLLATERAL) {
-               // (int256 share, address to) = abi.decode(datas[i], (int256, address));
-               // _removeCollateral(to, _num(share, value1, value2));
+                // (int256 share, address to) = abi.decode(datas[i], (int256, address));
+                // _removeCollateral(to, _num(share, value1, value2));
                 needsSolvencyCheck = true;
             } else if (action == ACTION_BORROW) {
-               // (int256 amount, address to) = abi.decode(datas[i], (int256, address));
-              //  (value1, value2) = _borrow(to, _num(amount, value1, value2));
+                // (int256 amount, address to) = abi.decode(datas[i], (int256, address));
+                // (value1, value2) = _borrow(to, _num(amount, value1, value2));
                 needsSolvencyCheck = true;
              } else if (action == ACTION_UPDATE_EXCHANGE_RATE) {
-            //    (bool must_update, uint256 minRate, uint256 maxRate) = abi.decode(datas[i], (bool, uint256, uint256));
-              //  (bool updated, uint256 rate) = updateExchangeRate();
-               // require((!must_update || updated) && rate > minRate && (maxRate == 0 || rate > maxRate), "KashiPair: rate not ok");
+                // (bool must_update, uint256 minRate, uint256 maxRate) = abi.decode(datas[i], (bool, uint256, uint256));
+                // (bool updated, uint256 rate) = updateExchangeRate();
+                // require((!must_update || updated) && rate > minRate && (maxRate == 0 || rate > maxRate), "KashiPair: rate not ok");
             } else if (action == ACTION_BENTO_SETAPPROVAL) {
-               // (address user, address _masterContract, bool approved, uint8 v, bytes32 r, bytes32 s) =
-                //    abi.decode(datas[i], (address, address, bool, uint8, bytes32, bytes32));
-               // bentoBox.setMasterContractApproval(user, _masterContract, approved, v, r, s);
+                // (address user, address _masterContract, bool approved, uint8 v, bytes32 r, bytes32 s) =
+                // abi.decode(datas[i], (address, address, bool, uint8, bytes32, bytes32));
+                // bentoBox.setMasterContractApproval(user, _masterContract, approved, v, r, s);
             } else if (action == ACTION_BENTO_DEPOSIT) {
-               // (value1, value2) = _bentoDeposit(datas[i], values[i], value1, value2);
+                // (value1, value2) = _bentoDeposit(datas[i], values[i], value1, value2);
             } else if (action == ACTION_BENTO_WITHDRAW) {
-               // (value1, value2) = _bentoWithdraw(datas[i], value1, value2);
+                // (value1, value2) = _bentoWithdraw(datas[i], value1, value2);
             } else if (action == ACTION_BENTO_TRANSFER) {
-               // (IERC20 token, address to, int256 share) = abi.decode(datas[i], (IERC20, address, int256));
-               // bentoBox.transfer(token, msg.sender, to, _num(share, value1, value2));
+                // (IERC20 token, address to, int256 share) = abi.decode(datas[i], (IERC20, address, int256));
+                // bentoBox.transfer(token, msg.sender, to, _num(share, value1, value2));
             } else if (action == ACTION_BENTO_TRANSFER_MULTIPLE) {
-               // (IERC20 token, address[] memory tos, uint256[] memory shares) = abi.decode(datas[i], (IERC20, address[], uint256[]));
-               // bentoBox.transferMultiple(token, msg.sender, tos, shares);
+                // (IERC20 token, address[] memory tos, uint256[] memory shares) = abi.decode(datas[i], (IERC20, address[], uint256[]));
+                // bentoBox.transferMultiple(token, msg.sender, tos, shares);
             } else if (action == ACTION_CALL) {
-               // (address callee, bytes memory callData, bool useValue1, bool useValue2, uint8 returnValues) =
-               //     abi.decode(datas[i], (address, bytes, bool, bool, uint8));
-              //  callData = _callData(callData, useValue1, useValue2, value1, value2);
-              //  bytes memory returnData = _call(values[i], callee, callData);
+                // (address callee, bytes memory callData, bool useValue1, bool useValue2, uint8 returnValues) =
+                //     abi.decode(datas[i], (address, bytes, bool, bool, uint8));
+                // callData = _callData(callData, useValue1, useValue2, value1, value2);
+                // bytes memory returnData = _call(values[i], callee, callData);
 
-              /*  if (returnValues == 1) {
-                    (value1) = abi.decode(returnData, (uint256));
-                } else if (returnValues == 2) {
-                    (value1, value2) = abi.decode(returnData, (uint256, uint256));
-                }*/
+                /*
+                if (returnValues == 1) {
+                        (value1) = abi.decode(returnData, (uint256));
+                    } else if (returnValues == 2) {
+                        (value1, value2) = abi.decode(returnData, (uint256, uint256));
+                    }
+                */
             } else if (action == ACTION_GET_REPAY_SHARE) {
-               /* int256 part = abi.decode(datas[i], (int256));
-                value1 = bentoBox.toShare(asset, totalBorrow.toElastic(_num(part, value1, value2), true), true); */
+                // int256 part = abi.decode(datas[i], (int256));
+                // value1 = bentoBox.toShare(asset, totalBorrow.toElastic(_num(part, value1, value2), true), true);
             } else if (action == ACTION_GET_REPAY_PART) {
-                /* int256 amount = abi.decode(datas[i], (int256));
-                value1 = totalBorrow.toBase(_num(amount, value1, value2), false);*/
+                // int256 amount = abi.decode(datas[i], (int256));
+                // value1 = totalBorrow.toBase(_num(amount, value1, value2), false);
             }
 
         if (needsSolvencyCheck) {
@@ -209,16 +206,13 @@ contract KashiPairHarness is KashiPair {
         bool open
     ) public override {
         require(to != address(this));
-		if(open) {
-        	require (swapper == whitelistedSwapper );
-		}
-		else {
-			require (swapper == redSwapper );
+
+		if (open) {
+        	require (swapper == whitelistedSwapper);
+		} else {
+			require (swapper == redSwapper);
 		}
 
         super.liquidate(users, maxBorrowParts, to, swapper, open);
     }
-
-
-
 }
