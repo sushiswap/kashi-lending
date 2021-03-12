@@ -6,16 +6,17 @@ import "@sushiswap/bentobox-sdk/contracts/IBentoBoxV1.sol";
 import "@sushiswap/core/contracts/uniswapv2/interfaces/IUniswapV2Factory.sol";
 import "@sushiswap/core/contracts/uniswapv2/interfaces/IUniswapV2Pair.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringMath.sol";
+import "@boringcrypto/boring-solidity/contracts/libraries/BoringRebase.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringERC20.sol";
 import "../KashiPair.sol";
-import "../KashiPairHelper.sol";
 import "../interfaces/ISwapper.sol";
 
 // solhint-disable not-rely-on-time
 
-contract FlashloanStrategyMock is IStrategy, IFlashBorrower, KashiPairHelper {
+contract FlashloanStrategyMock is IStrategy, IFlashBorrower {
     using BoringMath for uint256;
     using BoringERC20 for IERC20;
+    using RebaseLibrary for Rebase;
 
     IERC20 private immutable assetToken;
     IERC20 private immutable collateralToken;
@@ -88,6 +89,27 @@ contract FlashloanStrategyMock is IStrategy, IFlashBorrower, KashiPairHelper {
         amountOut = numerator / denominator;
     }
 
+    /// @dev Helper function to calculate the collateral shares that are needed for `borrowPart`,
+    /// taking the current exchange rate into account.
+    function getCollateralSharesForBorrowPart(KashiPair _kashiPair, uint256 borrowPart) public view returns (uint256) {
+        // Taken from KashiPair
+        uint256 EXCHANGE_RATE_PRECISION = 1e18;
+        uint256 LIQUIDATION_MULTIPLIER = 112000; // add 12%
+        uint256 LIQUIDATION_MULTIPLIER_PRECISION = 1e5;
+
+        (uint128 elastic, uint128 base) = _kashiPair.totalBorrow();
+        Rebase memory totalBorrow = Rebase(elastic, base);
+        uint256 borrowAmount = totalBorrow.toElastic(borrowPart, false);
+
+        return
+            _kashiPair.bentoBox().toShare(
+                _kashiPair.collateral(),
+                borrowAmount.mul(LIQUIDATION_MULTIPLIER).mul(_kashiPair.exchangeRate()) /
+                    (LIQUIDATION_MULTIPLIER_PRECISION * EXCHANGE_RATE_PRECISION),
+                false
+            );
+    }
+
     // liquidate
     function onFlashLoan(
         address, /*sender*/
@@ -111,7 +133,7 @@ contract FlashloanStrategyMock is IStrategy, IFlashBorrower, KashiPairHelper {
         uint256 targetBorrowPart = kashiPair.userBorrowPart(target);
         // round up
         uint256 divisor =
-            (KashiPairHelper.getCollateralSharesForBorrowPart(kashiPair, targetBorrowPart) * PREC) / (kashiPair.userCollateralShare(target)) + 1;
+            (getCollateralSharesForBorrowPart(kashiPair, targetBorrowPart) * PREC) / (kashiPair.userCollateralShare(target)) + 1;
         // setup
         address[] memory users = new address[](1);
         uint256[] memory amounts = new uint256[](1);
