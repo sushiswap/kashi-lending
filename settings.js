@@ -29,6 +29,7 @@ module.exports = {
             "libraries/FixedPoint.sol",
             "libraries/FullMath.sol",
             "libraries/SignedSafeMath.sol",
+            "KashiPairHelper",
             "flat/KashiPairFlat.sol",
             "flat/SushiSwapSwapperFlat.sol",
         ],
