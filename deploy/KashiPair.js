@@ -483,10 +483,10 @@ module.exports = async function (hre) {
     if (chainId == "31337" || hre.network.config.forking) {
         return
     }
-    if (!weth(chainId)) {
+    /*if (!weth(chainId)) {
         console.log("No WETH address for chain", chainId)
         return
-    }
+    }*/
     console.log("Chain:", chainId)
     console.log("Balance:", (await funder.getBalance()).div("1000000000000000000").toString())
     const deployerBalance = await deployer.getBalance()
@@ -556,22 +556,25 @@ module.exports = async function (hre) {
     const newOwner = "0x30a0911731f6eC80c87C4b99f27c254639A3Abcd"
 
     console.log("Whitelisting Swapper")
-    await kashipair.connect(deployer).setSwapper(swapper.address, true, {
+    tx = await kashipair.connect(deployer).setSwapper(swapper.address, true, {
         gasLimit: 100000,
         gasPrice: finalGasPrice,
     })
+    await tx.wait()
     console.log("Update KashiPair Owner")
-    await kashipair.connect(deployer).transferOwnership(newOwner, true, false, {
+    tx = await kashipair.connect(deployer).transferOwnership(newOwner, true, false, {
         gasLimit: 100000,
         gasPrice: finalGasPrice,
     })
+    await tx.wait()
 
     if ((await bentoBox.owner()) == bentoBoxSigner.address) {
         console.log("Whitelisting KashiPair")
-        await bentoBox.whitelistMasterContract(kashipair.address, true, {
+        tx = await bentoBox.whitelistMasterContract(kashipair.address, true, {
             gasLimit: 100000,
             gasPrice: finalGasPrice,
         })
+        await tx.wait()
 
         /*console.log("Update BentoBox Owner")
         await bentoBox.transferOwnership(newOwner, true, false, {
