@@ -6,7 +6,9 @@ import "@boringcrypto/boring-solidity/contracts/libraries/BoringRebase.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringERC20.sol";
 import "@sushiswap/bentobox-sdk/contracts/IBentoBoxV1.sol";
 import "./interfaces/IOracle.sol";
-import "./KashiPair.sol";
+import "./interfaces/IKashiPair.sol";
+
+
 
 /// @dev This contract provides useful helper functions for `KashiPair`.
 contract KashiPairHelper {
@@ -21,14 +23,13 @@ contract KashiPairHelper {
 
     /// @dev Helper function to calculate the collateral shares that are needed for `borrowPart`,
     /// taking the current exchange rate into account.
-    function getCollateralSharesForBorrowPart(KashiPair kashiPair, uint256 borrowPart) public view returns (uint256) {
+    function getCollateralSharesForBorrowPart(IKashiPair kashiPair, uint256 borrowPart) public view returns (uint256) {
         // Taken from KashiPair
         uint256 EXCHANGE_RATE_PRECISION = 1e18;
         uint256 LIQUIDATION_MULTIPLIER = 112000; // add 12%
         uint256 LIQUIDATION_MULTIPLIER_PRECISION = 1e5;
 
-        (uint128 elastic, uint128 base) = kashiPair.totalBorrow();
-        Rebase memory totalBorrow = Rebase(elastic, base);
+        Rebase memory totalBorrow = kashiPair.totalBorrow();
         uint256 borrowAmount = totalBorrow.toElastic(borrowPart, false);
 
         return
@@ -51,7 +52,7 @@ contract KashiPairHelper {
         bytes oracleData;
     }
 
-    function getPairs(KashiPair[] calldata addresses) public view returns (KashiPairInfo[] memory) {
+    function getPairs(IKashiPair[] calldata addresses) public view returns (KashiPairInfo[] memory) {
         KashiPairInfo[] memory pairs = new KashiPairInfo[](addresses.length);
         for (uint256 i = 0; i < addresses.length; i++) {
             pairs[i].collateral = addresses[i].collateral();
@@ -80,12 +81,12 @@ contract KashiPairHelper {
         uint256 userBorrowAmount;
         uint256 currentExchangeRate;
         uint256 oracleExchangeRate;
-        uint64 interestPerSecond;
+        AccrueInfo accrueInfo;
         uint256 assetAPR;
         uint256 borrowAPR;
     }
 
-    function pollPairs(address who, KashiPair[] calldata addresses) public view returns (PairPollInfo memory, PairPoll[] memory) {
+    function pollPairs(address who, IKashiPair[] calldata addresses) public view returns (PairPollInfo memory, PairPoll[] memory) {
         PairPollInfo memory info;
         PairPoll[] memory pairs = new PairPoll[](addresses.length);
 
@@ -98,9 +99,8 @@ contract KashiPairHelper {
             {
                 Rebase memory totalAsset;
                 {
-                    (uint128 totalAssetElastic, uint128 totalAssetBase) = addresses[i].totalAsset();
-                    pairs[i].totalAssetAmount = bentoBox.toAmount(addresses[i].asset(), totalAssetElastic, false);
-                    totalAsset = Rebase(totalAssetElastic, totalAssetBase);
+                    totalAsset = addresses[i].totalAsset();
+                    pairs[i].totalAssetAmount = bentoBox.toAmount(addresses[i].asset(), totalAsset.elastic, false);
                 }
                 pairs[i].userAssetAmount = bentoBox.toAmount(addresses[i].asset(), totalAsset.toElastic(addresses[i].balanceOf(who), false), false);
                 if(pairs[i].userAssetAmount > 0) {
@@ -111,11 +111,10 @@ contract KashiPairHelper {
                 {
                     pairs[i].currentExchangeRate = addresses[i].exchangeRate();
                     (, pairs[i].oracleExchangeRate) = addresses[i].oracle().peek(addresses[i].oracleData());
-                    (pairs[i].interestPerSecond, ,) = addresses[i].accrueInfo();
+                    pairs[i].accrueInfo = addresses[i].accrueInfo();
                 }
-                (uint128 totalBorrowAmount, uint128 totalBorrowPart) = addresses[i].totalBorrow();
-                Rebase memory totalBorrow = Rebase(totalBorrowAmount, totalBorrowPart);
-                pairs[i].totalBorrowAmount = totalBorrowAmount;
+                Rebase memory totalBorrow = addresses[i].totalBorrow();
+                pairs[i].totalBorrowAmount = totalBorrow.elastic;
                 pairs[i].userBorrowAmount = totalBorrow.toElastic(addresses[i].userBorrowPart(who), false);
                 if(pairs[i].userBorrowAmount > 0) {
                     info.borrowPairCount += 1;
@@ -123,7 +122,7 @@ contract KashiPairHelper {
             }
             {
                 uint256 _totalBorrowAmount = pairs[i].totalBorrowAmount == 0 ? 1 : pairs[i].totalBorrowAmount; 
-                uint256 yearlyInterest = _totalBorrowAmount.mul(pairs[i].interestPerSecond).mul(365 days);
+                uint256 yearlyInterest = _totalBorrowAmount.mul(pairs[i].accrueInfo.interestPerSecond).mul(365 days);
                 pairs[i].assetAPR = yearlyInterest.mul(APY_PRECISION).mul(PROTOCOL_FEE_LEFTOVER) / _totalBorrowAmount.add(pairs[i].totalAssetAmount).mul(PROTOCOL_FEE_DIVISOR).mul(1e18);
                 pairs[i].borrowAPR = yearlyInterest.mul(APY_PRECISION) / _totalBorrowAmount.mul(1e18);
             }
