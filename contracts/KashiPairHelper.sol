@@ -123,9 +123,9 @@ contract KashiPairHelper {
             }
             {
                 uint256 _totalBorrowAmount = pairs[i].totalBorrowAmount == 0 ? 1 : pairs[i].totalBorrowAmount; 
-                uint256 yearlyInterest = _totalBorrowAmount.mul(pairs[i].interestPerSecond).mul(365 days) / 1e18;
-                pairs[i].assetAPR = yearlyInterest.mul(APY_PRECISION).mul(PROTOCOL_FEE_LEFTOVER) / _totalBorrowAmount.add(pairs[i].totalAssetAmount).mul(PROTOCOL_FEE_DIVISOR);
-                pairs[i].borrowAPR = yearlyInterest.mul(APY_PRECISION) / _totalBorrowAmount;
+                uint256 yearlyInterest = _totalBorrowAmount.mul(pairs[i].interestPerSecond).mul(365 days);
+                pairs[i].assetAPR = yearlyInterest.mul(APY_PRECISION).mul(PROTOCOL_FEE_LEFTOVER) / _totalBorrowAmount.add(pairs[i].totalAssetAmount).mul(PROTOCOL_FEE_DIVISOR).mul(1e18);
+                pairs[i].borrowAPR = yearlyInterest.mul(APY_PRECISION) / _totalBorrowAmount.mul(1e18);
             }
         }
 
