@@ -42,6 +42,11 @@ jobs:
 
     - name: Installing dependencies
       run: yarn install --frozen-lockfile
+    
+    - name: yarn test
+      run: yarn test
+      env:
+        ALCHEMY_API_KEY: ${{ secrets.ALCHEMY }}
 
     - name: yarn coverage
       run: yarn coverage
