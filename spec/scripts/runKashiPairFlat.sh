@@ -4,5 +4,4 @@ certoraRun spec/harness/KashiPairHarnessFlat.sol spec/harness/DummyERC20A.sol \
 	--settings -copyLoopUnroll=4,-b=1,-ignoreViewFunctions,-enableStorageAnalysis=true,-assumeUnwindCond,-recursionEntryLimit=10 \
 	--verify KashiPairHarnessFlat:spec/kashiPair.spec \
 	--solc_args "['--optimize', '--optimize-runs', '800']" \
-	--msg "KashiPairHarnessFlat all rules optimize-runs 800"  \
-	--rule totalSupplyEqUserBalanceOfSum --javaArgs '"-Dtopic.optimize"'
+	--msg "KashiPairHarnessFlat all rules optimize-runs 800"  
