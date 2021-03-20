@@ -261,6 +261,11 @@ contract ERC20 is ERC20Data, Domain {
         return true;
     }
 
+    // solhint-disable-next-line func-name-mixedcase
+    function DOMAIN_SEPARATOR() external view returns (bytes32) {
+        return _domainSeparator();
+    }
+
     // keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
     bytes32 private constant PERMIT_SIGNATURE_HASH = 0x6e71edae12b1b97f4d1f60370fef10105fa2faae0126114a169c64845d6126c9;
 
@@ -1161,6 +1166,7 @@ contract KashiPairMediumRiskV1 is ERC20, BoringOwnable, IMasterContract {
     uint8 internal constant ACTION_BORROW = 5;
     uint8 internal constant ACTION_GET_REPAY_SHARE = 6;
     uint8 internal constant ACTION_GET_REPAY_PART = 7;
+    uint8 internal constant ACTION_ACCRUE = 8;
 
     // Functions that don't need accrue to be called
     uint8 internal constant ACTION_ADD_COLLATERAL = 10;

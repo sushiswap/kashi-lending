@@ -455,6 +455,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
     uint8 internal constant ACTION_BORROW = 5;
     uint8 internal constant ACTION_GET_REPAY_SHARE = 6;
     uint8 internal constant ACTION_GET_REPAY_PART = 7;
+    uint8 internal constant ACTION_ACCRUE = 8;
 
     // Functions that don't need accrue to be called
     uint8 internal constant ACTION_ADD_COLLATERAL = 10;

@@ -37,6 +37,10 @@ contract OracleMock is IOracle {
         return (success, rate);
     }
 
+    function peekSpot(bytes calldata) public view override returns (uint256) {
+        return rate;
+    }
+
     function name(bytes calldata) public view override returns (string memory) {
         return "Test";
     }

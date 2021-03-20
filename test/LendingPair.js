@@ -207,7 +207,7 @@ describe("KashiPair Basic", function () {
             let borrowPartLeft = await this.pairHelper.contract.userBorrowPart(this.alice.address)
             let balanceLeft = await this.pairHelper.contract.balanceOf(this.alice.address)
             await this.pairHelper.run((cmd) => [cmd.repay(borrowPartLeft), cmd.do(this.pairHelper.contract.accrue)])
-            expect((await this.pairHelper.contract.accrueInfo()).interestPerSecond).to.be.equal(68493150675)
+            expect((await this.pairHelper.contract.accrueInfo()).interestPerSecond).to.be.equal(317097920)
         })
 
         it("should lock interest rate at minimum", async function () {
@@ -225,7 +225,7 @@ describe("KashiPair Basic", function () {
             await advanceTimeAndBlock(30000, ethers)
             await this.pairHelper.contract.accrue()
 
-            expect((await this.pairHelper.contract.accrueInfo()).interestPerSecond).to.be.equal(17123287665)
+            expect((await this.pairHelper.contract.accrueInfo()).interestPerSecond).to.be.equal(79274480)
         })
 
         it("should lock interest rate at maximum", async function () {
@@ -245,7 +245,7 @@ describe("KashiPair Basic", function () {
             await advanceTimeAndBlock(1500000, ethers)
             await this.pairHelper.contract.accrue()
 
-            expect((await this.pairHelper.contract.accrueInfo()).interestPerSecond).to.be.equal(68493150675000)
+            expect((await this.pairHelper.contract.accrueInfo()).interestPerSecond).to.be.equal(317097920000)
         })
 
         it("should emit Accrue if on target utilization", async function () {

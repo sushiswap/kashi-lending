@@ -8,7 +8,7 @@
     "settings": {
         "optimizer": {
             "enabled": true,
-            "runs": 500000
+            "runs": 999999
         },
         "outputSelection": {
             "*": {

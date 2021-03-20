@@ -478,7 +478,6 @@ module.exports = async function (hre) {
     const signers = await hre.ethers.getSigners()
     const deployer = signers[0]
     const funder = signers[1]
-    const bentoBoxSigner = signers[2]
     const chainId = await hre.getChainId()
     if (chainId == "31337" || hre.network.config.forking) {
         return
@@ -494,19 +493,16 @@ module.exports = async function (hre) {
     const gasPrice = await funder.provider.getGasPrice()
     let multiplier = hre.network.tags && hre.network.tags.staging ? 2 : 1
     let finalGasPrice = gasPrice.mul(multiplier)
-    const gasLimit = 5500000 + 1300000
+    const gasLimit = 5000000 + 5500000 + 1300000
     if (chainId == "88" || chainId == "89") {
         finalGasPrice = getBigNumber("10000", 9)
     }
     console.log("Gasprice:", gasPrice.toString(), " with multiplier ", multiplier, "final", finalGasPrice.toString())
 
-    let bentoBoxAddress = "0xB5891167796722331b7ea7824F036b3Bdcb4531C"
     let factory = "0xc35DADB65012eC5796536bD9864eD8773aBc74C4"
     if (chainId == "1") {
         factory = "0xC0AEe478e3658e2610c5F7A4A2E1777cE9e4f2Ac"
     }
-
-    const bentoBox = new ethers.Contract(bentoBoxAddress, bentoBoxABI, bentoBoxSigner)
 
     const initCodeHash = await new ethers.Contract(factory, factory_abi, deployer).pairCodeHash()
     console.log("InitCodeHash is", initCodeHash)
@@ -529,10 +525,22 @@ module.exports = async function (hre) {
         await tx.wait()
     }
 
+    console.log("Deploying contract")
+    tx = await hre.deployments.deploy("BentoBox", {
+        from: deployer.address,
+        args: [weth(chainId)],
+        log: true,
+        deterministicDeployment: false,
+        gasLimit: 5000000,
+        gasPrice: finalGasPrice,
+    })
+
+    const bentobox = (await hre.ethers.getContractFactory("BentoBox")).attach((await deployments.get("BentoBox")).address)
+
     console.log("Deploying KashiPair contract")
     tx = await hre.deployments.deploy("KashiPairMediumRiskV1", {
         from: deployer.address,
-        args: [bentoBoxAddress],
+        args: [bentobox.address],
         log: true,
         deterministicDeployment: false,
         gasLimit: 5500000,
@@ -542,7 +550,7 @@ module.exports = async function (hre) {
     console.log("Deploying Swapper contract")
     tx = await hre.deployments.deploy("SushiSwapSwapperV1", {
         from: deployer.address,
-        args: [bentoBoxAddress, factory, initCodeHash],
+        args: [bentobox.address, factory, initCodeHash],
         log: true,
         deterministicDeployment: false,
         gasLimit: 1300000,
@@ -568,20 +576,20 @@ module.exports = async function (hre) {
     })
     await tx.wait()
 
-    if ((await bentoBox.owner()) == bentoBoxSigner.address) {
-        console.log("Whitelisting KashiPair")
-        tx = await bentoBox.whitelistMasterContract(kashipair.address, true, {
-            gasLimit: 100000,
-            gasPrice: finalGasPrice,
-        })
-        await tx.wait()
+    //if ((await bentobox.owner()) == bentoBoxSigner.address) {
+    console.log("Whitelisting KashiPair")
+    tx = await bentobox.whitelistMasterContract(kashipair.address, true, {
+        gasLimit: 100000,
+        gasPrice: finalGasPrice,
+    })
+    await tx.wait()
 
-        /*console.log("Update BentoBox Owner")
-        await bentoBox.transferOwnership(newOwner, true, false, {
-            gasLimit: 100000,
-            gasPrice: finalGasPrice,
-        })*/
-    }
+    console.log("Update BentoBox Owner")
+    await bentobox.transferOwnership(newOwner, true, false, {
+        gasLimit: 100000,
+        gasPrice: finalGasPrice,
+    })
+    //}
 }
 
 function verify(apikey, address, source, contractname, license, runs) {

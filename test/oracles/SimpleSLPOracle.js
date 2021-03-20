@@ -65,6 +65,7 @@ describe("SimpleSLPOracle", function () {
                 await advanceTimeAndBlock(301, ethers)
 
                 expect((await this.oracleF.peek(this.oracleData))[1]).to.be.equal(getBigNumber(1).mul(5).div(10))
+                expect(await this.oracleF.peekSpot(this.oracleData)).to.be.equal(getBigNumber(1).mul(5).div(10))
                 await this.oracleB.peek(this.oracleData)
             })
         })
@@ -104,9 +105,11 @@ describe("SimpleSLPOracle", function () {
                 await advanceTime(150, ethers)
                 await this.oracleF.get(this.oracleData)
                 const price1 = (await this.oracleF.peek(this.oracleData))[1]
+                const price1spot = await this.oracleF.peekSpot(this.oracleData)
 
                 expect(price0).to.be.equal(getBigNumber(1).mul(5).div(10))
                 expect(roundBN(price1)).to.be.equal(roundBN(getBigNumber(1).mul(75).div(100)))
+                expect(roundBN(price1spot)).to.be.equal(roundBN(getBigNumber(1)))
             })
         })
 
