@@ -627,7 +627,7 @@ interface IBentoBoxV1 {
         bool roundUp
     ) external view returns (uint256 share);
 
-    function totals(IERC20) external view returns (uint128 elastic, uint128 base);
+    function totals(IERC20) external view returns (Rebase memory totals_);
 
     function transfer(
         IERC20 token,
@@ -1377,8 +1377,8 @@ contract KashiPairMediumRiskV1 is ERC20, BoringOwnable, IMasterContract {
         uint256 allBorrowAmount;
         uint256 allBorrowPart;
         Rebase memory _totalBorrow = totalBorrow;
-        uint256 len = users.length;
-        for (uint256 i = 0; i < len; i++) {
+        Rebase memory bentoBoxTotals = bentoBox.totals(collateral);
+        for (uint256 i = 0; i < users.length; i++) {
             address user = users[i];
             if (!_isSolvent(user, open, _exchangeRate)) {
                 uint256 borrowPart;
@@ -1389,8 +1389,7 @@ contract KashiPairMediumRiskV1 is ERC20, BoringOwnable, IMasterContract {
                 }
                 uint256 borrowAmount = _totalBorrow.toElastic(borrowPart, false);
                 uint256 collateralShare =
-                    bentoBox.toShare(
-                        collateral,
+                    bentoBoxTotals.toBase(
                         borrowAmount.mul(LIQUIDATION_MULTIPLIER).mul(_exchangeRate) /
                             (LIQUIDATION_MULTIPLIER_PRECISION * EXCHANGE_RATE_PRECISION),
                         false

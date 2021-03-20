@@ -10,7 +10,7 @@
     },
     "dependencies": {
         "@boringcrypto/boring-solidity": "boringcrypto/BoringSolidity#23cf083faf5c3217336a154f6593e42e6cd87d05",
-        "@sushiswap/bentobox-sdk": "sushiswap/bentobox-sdk#f5ca20dace7ecb4343321820acc6fbef2502e698",
+        "@sushiswap/bentobox-sdk": "sushiswap/bentobox-sdk#c11539f613275e97c9a166414e72ee432e629c52",
         "hardhat-deploy-ethers": "^0.3.0-beta.7"
     }
 }
