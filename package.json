@@ -6,11 +6,12 @@
         "coverage": "hardhat coverage"
     },
     "devDependencies": {
-        "@sushiswap/hardhat-framework": "sushiswap/hardhat-framework#b61f4556d805dfe22b9e6f741917078d8dcd2e76"
+        "@sushiswap/hardhat-framework": "sushiswap/hardhat-framework#88cd5557299b312b4cb021aafb86e56d6dac48a6"
     },
     "dependencies": {
-        "@boringcrypto/boring-solidity": "boringcrypto/BoringSolidity#8f2b54f645a7844ae266cc50dc3ae4c125c7b9fc",
-        "@sushiswap/bentobox-sdk": "sushiswap/bentobox-sdk#c11539f613275e97c9a166414e72ee432e629c52",
+        "@boringcrypto/boring-solidity": "boringcrypto/BoringSolidity#371a01c11465eb1c881193c60a53c0bf15ee8a19",
+        "@sushiswap/bentobox-sdk": "sushiswap/bentobox-sdk#e3f809870b86afbd57e0930662221d2362a160db",
+        "@sushiswap/core": "^1.4.2",
         "hardhat-deploy-ethers": "^0.3.0-beta.7"
     }
 }

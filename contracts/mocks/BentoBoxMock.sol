@@ -3,8 +3,8 @@ pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 import "../flat/BentoBoxFlat.sol";
 
-contract BentoBoxMock is BentoBox {
-    constructor(IERC20 weth) public BentoBox(weth) {
+contract BentoBoxMock is BentoBoxV1 {
+    constructor(IERC20 weth) public BentoBoxV1(weth) {
         return;
     }
 
