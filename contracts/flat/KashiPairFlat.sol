@@ -818,11 +818,11 @@ contract KashiPairMediumRiskV1 is ERC20, BoringOwnable, IMasterContract {
 
     // ERC20 'variables'
     function symbol() external view returns (string memory) {
-        return string(abi.encodePacked("bm", collateral.safeSymbol(), ">", asset.safeSymbol(), "-", oracle.symbol(oracleData)));
+        return string(abi.encodePacked("km", collateral.safeSymbol(), "/", asset.safeSymbol(), "-", oracle.symbol(oracleData)));
     }
 
     function name() external view returns (string memory) {
-        return string(abi.encodePacked("Kashi Med Risk ", collateral.safeName(), ">", asset.safeName(), "-", oracle.symbol(oracleData)));
+        return string(abi.encodePacked("Kashi Medium Risk ", collateral.safeName(), "/", asset.safeName(), "-", oracle.name(oracleData)));
     }
 
     function decimals() external view returns (uint8) {
@@ -865,11 +865,7 @@ contract KashiPairMediumRiskV1 is ERC20, BoringOwnable, IMasterContract {
     constructor(IBentoBoxV1 bentoBox_) public {
         bentoBox = bentoBox_;
         masterContract = this;
-
         feeTo = msg.sender;
-
-        // Not really an issue, but https://blog.trailofbits.com/2020/12/16/breaking-aave-upgradeability/
-        collateral = IERC20(address(1)); // Just a dummy value for the Master Contract
     }
 
     /// @notice Serves as the constructor for clones, as clones can't have a regular constructor
@@ -880,16 +876,6 @@ contract KashiPairMediumRiskV1 is ERC20, BoringOwnable, IMasterContract {
         require(address(collateral) != address(0), "KashiPair: bad pair");
 
         accrueInfo.interestPerSecond = uint64(STARTING_INTEREST_PER_SECOND); // 1% APR, with 1e18 being 100%
-    }
-
-    /// @notice Helper function to get the abi encoded bytes for the `init` function.
-    function getInitData(
-        IERC20 collateral_,
-        IERC20 asset_,
-        IOracle oracle_,
-        bytes calldata oracleData_
-    ) public pure returns (bytes memory data) {
-        return abi.encode(collateral_, asset_, oracle_, oracleData_);
     }
 
     /// @notice Accrues the interest on the borrowed tokens and handles the accumulation of fees.
@@ -977,15 +963,6 @@ contract KashiPairMediumRiskV1 is ERC20, BoringOwnable, IMasterContract {
             ) >=
             // Moved exchangeRate here instead of dividing the other side to preserve more precision
             borrowPart.mul(_totalBorrow.elastic).mul(_exchangeRate) / _totalBorrow.base;
-    }
-
-    /// @notice Checks if the user is solvent.
-    /// Has an option `open` to check if the user is solvent in an open/closed liquidation case.
-    /// @param user The address of the user in question.
-    /// @param open If True then the check is perfomed with `OPEN_COLLATERIZATION_RATE` else with `CLOSED_COLLATERIZATION_RATE`.
-    /// @return (bool) User is solvent if True.
-    function isSolvent(address user, bool open) public view returns (bool) {
-        return _isSolvent(user, open, exchangeRate);
     }
 
     /// @dev Checks if the user is solvent in the closed liquidation case at the end of the function body.
@@ -1209,28 +1186,7 @@ contract KashiPairMediumRiskV1 is ERC20, BoringOwnable, IMasterContract {
         uint256 value1,
         uint256 value2
     ) internal pure returns (uint256 outNum) {
-        if (inNum >= 0) {
-            outNum = uint256(inNum);
-        } else if (inNum == USE_VALUE1) {
-            outNum = value1;
-        } else if (inNum == USE_VALUE2) {
-            outNum = value2;
-        } else {
-            revert("KashiPair: Num out of bounds");
-        }
-    }
-
-    /// @dev Helper function to extract a useful revert message from a failed call.
-    /// If the returned data is malformed or not correctly abi encoded then this can fail by itself.
-    function _getRevertMsg(bytes memory _returnData) internal pure returns (string memory) {
-        // If the _res length is less than 68, then the transaction failed silently (without a revert message)
-        if (_returnData.length < 68) return "Transaction reverted silently";
-
-        assembly {
-            // Slice the sighash.
-            _returnData := add(_returnData, 0x04)
-        }
-        return abi.decode(_returnData, (string)); // All that remains is the revert string
+        outNum = inNum >= 0 ? uint256(inNum) : (inNum == USE_VALUE1 ? value1 : value2);
     }
 
     /// @dev Helper function for depositing into `bentoBox`.
@@ -1256,41 +1212,31 @@ contract KashiPairMediumRiskV1 is ERC20, BoringOwnable, IMasterContract {
         return bentoBox.withdraw(token, msg.sender, to, _num(amount, value1, value2), _num(share, value1, value2));
     }
 
-    /// @dev Helper function for conditional abi encoding based on inputs.
-    function _callData(
-        bytes memory callData,
-        bool useValue1,
-        bool useValue2,
-        uint256 value1,
-        uint256 value2
-    ) internal pure returns (bytes memory callDataOut) {
-        if (useValue1 && !useValue2) {
-            callDataOut = abi.encodePacked(callData, value1);
-        } else if (!useValue1 && useValue2) {
-            callDataOut = abi.encodePacked(callData, value2);
-        } else if (useValue1 && useValue2) {
-            callDataOut = abi.encodePacked(callData, value1, value2);
-        } else {
-            callDataOut = callData;
-        }
-    }
-
     /// @dev Helper function to perform a contract call and eventually extracting revert messages on failure.
     /// Calls to `bentoBox` are not allowed for obvious security reasons.
     /// This also means that calls made from this contract shall *not* be trusted.
-    /// @param value Amount of ETH to transfer.
-    /// @param callee The address to call. Calling `bentoBox` is not allowed.
-    /// @return (bytes) the data that the call returned.
     function _call(
         uint256 value,
-        address callee,
-        bytes memory callData
-    ) internal returns (bytes memory) {
+        bytes memory data,
+        uint256 value1,
+        uint256 value2
+    ) internal returns (bytes memory, uint8) {
+        (address callee, bytes memory callData, bool useValue1, bool useValue2, uint8 returnValues) =
+            abi.decode(data, (address, bytes, bool, bool, uint8));
+
+        if (useValue1 && !useValue2) {
+            callData = abi.encodePacked(callData, value1);
+        } else if (!useValue1 && useValue2) {
+            callData = abi.encodePacked(callData, value2);
+        } else if (useValue1 && useValue2) {
+            callData = abi.encodePacked(callData, value1, value2);
+        }
+
         require(callee != address(bentoBox) && callee != address(this), "KashiPair: can't call");
 
         (bool success, bytes memory returnData) = callee.call{value: value}(callData);
-        require(success, _getRevertMsg(returnData));
-        return returnData;
+        require(success, "KashiPair: call failed");
+        return (returnData, returnValues);
     }
 
     struct CookStatus {
@@ -1356,10 +1302,7 @@ contract KashiPairMediumRiskV1 is ERC20, BoringOwnable, IMasterContract {
                 (IERC20 token, address[] memory tos, uint256[] memory shares) = abi.decode(datas[i], (IERC20, address[], uint256[]));
                 bentoBox.transferMultiple(token, msg.sender, tos, shares);
             } else if (action == ACTION_CALL) {
-                (address callee, bytes memory callData, bool useValue1, bool useValue2, uint8 returnValues) =
-                    abi.decode(datas[i], (address, bytes, bool, bool, uint8));
-                callData = _callData(callData, useValue1, useValue2, value1, value2);
-                bytes memory returnData = _call(values[i], callee, callData);
+                (bytes memory returnData, uint8 returnValues) = _call(values[i], datas[i], value1, value2);
 
                 if (returnValues == 1) {
                     (value1) = abi.decode(returnData, (uint256));

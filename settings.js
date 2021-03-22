@@ -47,6 +47,60 @@ module.exports = {
                         },
                     },
                 },
+                "contracts/flat/PeggedOracleFlat.sol": {
+                    version: "0.6.12",
+                    settings: {
+                        optimizer: {
+                            enabled: true,
+                            runs: 999999,
+                        },
+                    },
+                },
+                "contracts/flat/SimpleSLPTWAP0OracleFlat.sol": {
+                    version: "0.6.12",
+                    settings: {
+                        optimizer: {
+                            enabled: true,
+                            runs: 999999,
+                        },
+                    },
+                },
+                "contracts/flat/SimpleSLPTWAP1OracleFlat.sol": {
+                    version: "0.6.12",
+                    settings: {
+                        optimizer: {
+                            enabled: true,
+                            runs: 999999,
+                        },
+                    },
+                },
+                "contracts/flat/ChainlinkOracleFlat.sol": {
+                    version: "0.6.12",
+                    settings: {
+                        optimizer: {
+                            enabled: true,
+                            runs: 999999,
+                        },
+                    },
+                },
+                "contracts/flat/CompoundOracle.sol": {
+                    version: "0.6.12",
+                    settings: {
+                        optimizer: {
+                            enabled: true,
+                            runs: 999999,
+                        },
+                    },
+                },
+                "contracts/flat/BoringHelperFlat.sol": {
+                    version: "0.6.12",
+                    settings: {
+                        optimizer: {
+                            enabled: true,
+                            runs: 999999,
+                        },
+                    },
+                },
             },
         },
     },
