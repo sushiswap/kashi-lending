@@ -6,7 +6,7 @@
         "coverage": "hardhat coverage"
     },
     "devDependencies": {
-        "@sushiswap/hardhat-framework": "sushiswap/hardhat-framework#88cd5557299b312b4cb021aafb86e56d6dac48a6"
+        "@sushiswap/hardhat-framework": "sushiswap/hardhat-framework#78d0e9fd686b578c895b3404eefe22300002c74b"
     },
     "dependencies": {
         "@boringcrypto/boring-solidity": "boringcrypto/BoringSolidity#371a01c11465eb1c881193c60a53c0bf15ee8a19",

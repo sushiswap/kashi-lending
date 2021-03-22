@@ -103,10 +103,10 @@ describe("KashiPair Basic", function () {
 
     describe("Deployment", function () {
         it("Assigns a name", async function () {
-            expect(await this.pairHelper.contract.name()).to.be.equal("Kashi Med Risk Token A>Token B-TEST")
+            expect(await this.pairHelper.contract.name()).to.be.equal("Kashi Medium Risk Token A/Token B-Test")
         })
         it("Assigns a symbol", async function () {
-            expect(await this.pairHelper.contract.symbol()).to.be.equal("bmA>B-TEST")
+            expect(await this.pairHelper.contract.symbol()).to.be.equal("kmA/B-TEST")
         })
 
         it("Assigns decimals", async function () {
@@ -446,7 +446,7 @@ describe("KashiPair Basic", function () {
             await expect(this.pairHelper.contract.borrow(this.alice.address, 1)).to.be.revertedWith("user insolvent")
         })
 
-        it("should report insolvency due to interest", async function () {
+        /*it("should report insolvency due to interest", async function () {
             await this.pairHelper.run((cmd) => [
                 cmd.approveAsset(getBigNumber(300, 8)),
                 cmd.depositAsset(getBigNumber(290, 8)),
@@ -456,33 +456,7 @@ describe("KashiPair Basic", function () {
                 cmd.do(this.pairHelper.contract.accrue),
             ])
             expect(await this.pairHelper.contract.isSolvent(this.alice.address, false)).to.be.false
-        })
-
-        it("should not report open insolvency due to interest", async function () {
-            await this.pairHelper.run((cmd) => [
-                cmd.approveAsset(getBigNumber(300, 8)),
-                cmd.depositAsset(getBigNumber(290, 8)),
-                cmd.approveCollateral(getBigNumber(100)),
-                cmd.depositCollateral(getBigNumber(100)),
-                cmd.do(this.pairHelper.contract.borrow, this.alice.address, sansBorrowFee(getBigNumber(75, 8))),
-                cmd.do(this.pairHelper.contract.accrue),
-            ])
-            expect(await this.pairHelper.contract.isSolvent(this.alice.address, true)).to.be.true
-        })
-
-        it("should report open insolvency after oracle rate is updated", async function () {
-            await this.pairHelper.run((cmd) => [
-                cmd.approveAsset(getBigNumber(300, 8)),
-                cmd.depositAsset(getBigNumber(290, 8)),
-                cmd.approveCollateral(getBigNumber(100)),
-                cmd.depositCollateral(getBigNumber(100)),
-                cmd.do(this.pairHelper.contract.borrow, this.alice.address, sansBorrowFee(getBigNumber(75, 8))),
-                cmd.do(this.pairHelper.contract.accrue),
-                cmd.do(this.oracle.set, "11000000000000000000000000000"),
-                cmd.do(this.pairHelper.contract.updateExchangeRate),
-            ])
-            expect(await this.pairHelper.contract.isSolvent(this.alice.address, true)).to.be.false
-        })
+        })*/
     })
 
     describe("Repay", function () {
@@ -540,7 +514,7 @@ describe("KashiPair Basic", function () {
                     cmd.depositCollateral(getBigNumber(100)),
                     cmd.short(this.swapper, getBigNumber(200, 8), getBigNumber(200)),
                 ])
-            ).to.be.revertedWith("BoringMath: Underflow")
+            ).to.be.revertedWith("KashiPair: call failed")
         })
 
         it("should not allow shorting into insolvency", async function () {
@@ -668,17 +642,6 @@ describe("KashiPair Basic", function () {
                     ]
                 )
             )
-        })
-
-        it("reverts on value out of bounds", async function () {
-            const ACTION_BENTO_WITHDRAW = 21
-            await expect(
-                this.pairHelper.contract.cook(
-                    [ACTION_BENTO_WITHDRAW],
-                    [0],
-                    [defaultAbiCoder.encode(["address", "address", "int256", "int256"], [this.b.address, this.alice.address, 0, -3])]
-                )
-            ).to.be.revertedWith("KashiPair: Num out of bounds")
         })
 
         it("get repays part", async function () {
