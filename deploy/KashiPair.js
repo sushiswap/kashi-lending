@@ -465,33 +465,56 @@ module.exports = async function (hre) {
         },
         { stateMutability: "payable", type: "receive" },
     ]
+    const factory_abi = [
+        {
+            inputs: [],
+            name: "pairCodeHash",
+            outputs: [{ internalType: "bytes32", name: "", type: "bytes32" }],
+            stateMutability: "pure",
+            type: "function",
+        },
+    ]
 
     const signers = await hre.ethers.getSigners()
     const deployer = signers[0]
     const funder = signers[1]
-    const bentoBoxSigner = signers[2]
     const chainId = await hre.getChainId()
     if (chainId == "31337" || hre.network.config.forking) {
         return
     }
-    if (!weth(chainId)) {
+    /*if (!weth(chainId)) {
         console.log("No WETH address for chain", chainId)
         return
-    }
+    }*/
     console.log("Chain:", chainId)
     console.log("Balance:", (await funder.getBalance()).div("1000000000000000000").toString())
     const deployerBalance = await deployer.getBalance()
 
+    let sushiOwner = "0x10601b88F47e5FAfE9Da5Ac855c9E98e79903280"
+    if (chainId == 1) {
+        let sushiOwner = "0x19B3Eb3Af5D93b77a5619b047De0EED7115A19e7"
+    }
+
     const gasPrice = await funder.provider.getGasPrice()
     let multiplier = hre.network.tags && hre.network.tags.staging ? 2 : 1
     let finalGasPrice = gasPrice.mul(multiplier)
-    const gasLimit = 5500000 + 1300000
+    const gasLimit = 5000000 + 5500000 + 1300000
     if (chainId == "88" || chainId == "89") {
         finalGasPrice = getBigNumber("10000", 9)
     }
     console.log("Gasprice:", gasPrice.toString(), " with multiplier ", multiplier, "final", finalGasPrice.toString())
 
-    if (deployerBalance < finalGasPrice.mul(gasLimit + 500000)) {
+    let factory = "0xc35DADB65012eC5796536bD9864eD8773aBc74C4"
+    if (chainId == "1") {
+        factory = "0xC0AEe478e3658e2610c5F7A4A2E1777cE9e4f2Ac"
+    }
+
+    const initCodeHash = await new ethers.Contract(factory, factory_abi, deployer).pairCodeHash()
+    console.log("InitCodeHash is", initCodeHash)
+
+    console.log("Deployer balance", deployerBalance.toString())
+    console.log("Needed", finalGasPrice.mul(gasLimit + 500000).toString(), finalGasPrice.toString(), gasLimit.toString())
+    if (deployerBalance.lt(finalGasPrice.mul(gasLimit + 500000))) {
         console.log(
             "Sending native token to fund deployment:",
             finalGasPrice
@@ -507,18 +530,22 @@ module.exports = async function (hre) {
         await tx.wait()
     }
 
-    let bentoBoxAddress = "0xB5891167796722331b7ea7824F036b3Bdcb4531C"
-    let factory = "0xc35DADB65012eC5796536bD9864eD8773aBc74C4"
-    if (chainId == "1") {
-        factory = "0xC0AEe478e3658e2610c5F7A4A2E1777cE9e4f2Ac"
-    }
+    console.log("Deploying contract")
+    tx = await hre.deployments.deploy("BentoBox", {
+        from: deployer.address,
+        args: [weth(chainId)],
+        log: true,
+        deterministicDeployment: false,
+        gasLimit: 5000000,
+        gasPrice: finalGasPrice,
+    })
 
-    const bentoBox = new ethers.Contract(bentoBoxAddress, bentoBoxABI, bentoBoxSigner)
+    const bentobox = (await hre.ethers.getContractFactory("BentoBox")).attach((await deployments.get("BentoBox")).address)
 
     console.log("Deploying KashiPair contract")
     tx = await hre.deployments.deploy("KashiPairMediumRiskV1", {
         from: deployer.address,
-        args: [bentoBoxAddress],
+        args: [bentobox.address],
         log: true,
         deterministicDeployment: false,
         gasLimit: 5500000,
@@ -528,7 +555,7 @@ module.exports = async function (hre) {
     console.log("Deploying Swapper contract")
     tx = await hre.deployments.deploy("SushiSwapSwapperV1", {
         from: deployer.address,
-        args: [bentoBoxAddress, factory],
+        args: [bentobox.address, factory, initCodeHash],
         log: true,
         deterministicDeployment: false,
         gasLimit: 1300000,
@@ -539,30 +566,67 @@ module.exports = async function (hre) {
         (await deployments.get("KashiPairMediumRiskV1")).address
     )
     const swapper = (await hre.ethers.getContractFactory("SushiSwapSwapperV1")).attach((await deployments.get("SushiSwapSwapperV1")).address)
-    const newOwner = "0x30a0911731f6eC80c87C4b99f27c254639A3Abcd"
 
     console.log("Whitelisting Swapper")
-    await kashipair.connect(deployer).setSwapper(swapper.address, true, {
+    tx = await kashipair.connect(deployer).setSwapper(swapper.address, true, {
         gasLimit: 100000,
         gasPrice: finalGasPrice,
     })
+    await tx.wait()
     console.log("Update KashiPair Owner")
-    await kashipair.connect(deployer).transferOwnership(newOwner, true, false, {
+    tx = await kashipair.connect(deployer).transferOwnership(sushiOwner, true, false, {
         gasLimit: 100000,
         gasPrice: finalGasPrice,
     })
+    await tx.wait()
 
-    if ((await bentoBox.owner()) == bentoBoxSigner.address) {
-        console.log("Whitelisting KashiPair")
-        await bentoBox.whitelistMasterContract(kashipair.address, true, {
-            gasLimit: 100000,
-            gasPrice: finalGasPrice,
-        })
+    //if ((await bentobox.owner()) == bentoBoxSigner.address) {
+    console.log("Whitelisting KashiPair")
+    tx = await bentobox.whitelistMasterContract(kashipair.address, true, {
+        gasLimit: 100000,
+        gasPrice: finalGasPrice,
+    })
+    await tx.wait()
 
-        /*console.log("Update BentoBox Owner")
-        await bentoBox.transferOwnership(newOwner, true, false, {
-            gasLimit: 100000,
-            gasPrice: finalGasPrice,
-        })*/
-    }
+    console.log("Update BentoBox Owner")
+    await bentobox.transferOwnership(sushiOwner, true, false, {
+        gasLimit: 100000,
+        gasPrice: finalGasPrice,
+    })
+    //}
+}
+
+function verify(apikey, address, source, contractname, license, runs) {
+    var request = require("request")
+    request.post(
+        "//api.etherscan.io/api",
+        {
+            apikey: apikey, //A valid API-Key is required
+            module: "contract", //Do not change
+            action: "verifysourcecode", //Do not change
+            contractaddress: address, //Contract Address starts with 0x...
+            sourceCode: source, //Contract Source Code (Flattened if necessary)
+            contractname: contractname, //ContractName (if codeformat=solidity-standard-json-input, then enter contractname as ex: erc20.sol:erc20)
+            compilerversion: "v0.6.12+commit.27d51765", // see https://etherscan.io/solcversions for list of support versions
+            optimizationUsed: 1, //0 = No Optimization, 1 = Optimization used (applicable when codeformat=solidity-single-file)
+            runs: runs, //set to 200 as default unless otherwise  (applicable when codeformat=solidity-single-file)
+            constructorArguements: $("#constructorArguements").val(), //if applicable
+            evmversion: $("#evmVersion").val(), //leave blank for compiler default, homestead, tangerineWhistle, spuriousDragon, byzantium, constantinople, petersburg, istanbul (applicable when codeformat=solidity-single-file)
+            licenseType: license, //Valid codes 1-12 where 1=No License .. 12=Apache 2.0, see https://etherscan.io/contract-license-types
+        },
+        function (err, res, body) {
+            console.log(res)
+            /*if (result.status == "1") {
+            //1 = submission success, use the guid returned (result.result) to check the status of your submission.
+            // Average time of processing is 30-60 seconds
+            document.getElementById("postresult").innerHTML = result.status + ";" + result.message + ";" + result.result;
+            // result.result is the GUID receipt for the submission, you can use this guid for checking the verification status
+        } else {
+            //0 = error
+            document.getElementById("postresult").innerHTML = result.status + ";" + result.message + ";" + result.result;
+        }
+        console.log("status : " + result.status);
+        console.log("result : " + result.result);*/
+        }
+    )
 }

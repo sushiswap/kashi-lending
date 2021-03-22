@@ -116,9 +116,9 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
     uint256 private constant FULL_UTILIZATION_MINUS_MAX = FULL_UTILIZATION - MAXIMUM_TARGET_UTILIZATION;
     uint256 private constant FACTOR_PRECISION = 1e18;
 
-    uint64 private constant STARTING_INTEREST_PER_SECOND = 68493150675; // approx 1% APR
-    uint64 private constant MINIMUM_INTEREST_PER_SECOND = 17123287665; // approx 0.25% APR
-    uint64 private constant MAXIMUM_INTEREST_PER_SECOND = 68493150675000; // approx 1000% APR
+    uint64 private constant STARTING_INTEREST_PER_SECOND = 317097920; // approx 1% APR
+    uint64 private constant MINIMUM_INTEREST_PER_SECOND = 79274480; // approx 0.25% APR
+    uint64 private constant MAXIMUM_INTEREST_PER_SECOND = 317097920000; // approx 1000% APR
     uint256 private constant INTEREST_ELASTICITY = 28800e36; // Half or double in 28800 seconds (8 hours) if linear
 
     uint256 private constant EXCHANGE_RATE_PRECISION = 1e18;
@@ -455,6 +455,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
     uint8 internal constant ACTION_BORROW = 5;
     uint8 internal constant ACTION_GET_REPAY_SHARE = 6;
     uint8 internal constant ACTION_GET_REPAY_PART = 7;
+    uint8 internal constant ACTION_ACCRUE = 8;
 
     // Functions that don't need accrue to be called
     uint8 internal constant ACTION_ADD_COLLATERAL = 10;

@@ -29,6 +29,12 @@ contract PeggedOracle is IOracle {
         return (rate != 0, rate);
     }
 
+    // Check the current spot exchange rate without any state changes
+    /// @inheritdoc IOracle
+    function peekSpot(bytes calldata data) external view override returns (uint256 rate) {
+        (, rate) = peek(data);
+    }
+
     /// @inheritdoc IOracle
     function name(bytes calldata) public view override returns (string memory) {
         return "Pegged";

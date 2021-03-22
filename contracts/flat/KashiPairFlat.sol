@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
-// Kashi Lending Medium Risk Pair
+// Kashi Lending Medium Risk
+
 //  __  __             __    __      _____                  __ __
 // |  |/  .---.-.-----|  |--|__|    |     |_.-----.-----.--|  |__.-----.-----.
 // |     <|  _  |__ --|     |  |    |       |  -__|     |  _  |  |     |  _  |
@@ -13,8 +14,7 @@
 // @0xKeno - for all his invaluable contributions
 // @burger_crypto - for the idea of trying to let the LPs benefit from liquidations
 
-// Version: 10-Mar-2021
-
+// Version: 22-Feb-2021
 pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
@@ -22,7 +22,7 @@ pragma experimental ABIEncoderV2;
 // solhint-disable no-inline-assembly
 // solhint-disable not-rely-on-time
 
-// File @boringcrypto/boring-solidity/contracts/libraries/BoringMath.sol@v1.1.0
+// File @boringcrypto/boring-solidity/contracts/libraries/BoringMath.sol@v1.2.0
 // License-Identifier: MIT
 
 /// @notice A library for performing overflow-/underflow-safe math,
@@ -67,7 +67,7 @@ library BoringMath128 {
     }
 }
 
-// File @boringcrypto/boring-solidity/contracts/BoringOwnable.sol@v1.1.0
+// File @boringcrypto/boring-solidity/contracts/BoringOwnable.sol@v1.2.0
 // License-Identifier: MIT
 
 // Audit on 5-Jan-2021 by Keno and BoringCrypto
@@ -82,12 +82,10 @@ contract BoringOwnableData {
 contract BoringOwnable is BoringOwnableData {
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
-    address private constant ZERO_ADDRESS = address(0);
-
     /// @notice `owner` defaults to msg.sender on construction.
     constructor() public {
         owner = msg.sender;
-        emit OwnershipTransferred(ZERO_ADDRESS, msg.sender);
+        emit OwnershipTransferred(address(0), msg.sender);
     }
 
     /// @notice Transfers ownership to `newOwner`. Either directly or claimable by the new pending owner.
@@ -102,12 +100,12 @@ contract BoringOwnable is BoringOwnableData {
     ) public onlyOwner {
         if (direct) {
             // Checks
-            require(newOwner != ZERO_ADDRESS || renounce, "Ownable: zero address");
+            require(newOwner != address(0) || renounce, "Ownable: zero address");
 
             // Effects
             emit OwnershipTransferred(owner, newOwner);
             owner = newOwner;
-            pendingOwner = ZERO_ADDRESS;
+            pendingOwner = address(0);
         } else {
             // Effects
             pendingOwner = newOwner;
@@ -124,7 +122,7 @@ contract BoringOwnable is BoringOwnableData {
         // Effects
         emit OwnershipTransferred(owner, _pendingOwner);
         owner = _pendingOwner;
-        pendingOwner = ZERO_ADDRESS;
+        pendingOwner = address(0);
     }
 
     /// @notice Only allows the `owner` to execute the function.
@@ -134,7 +132,7 @@ contract BoringOwnable is BoringOwnableData {
     }
 }
 
-// File @boringcrypto/boring-solidity/contracts/Domain.sol@v1.1.0
+// File @boringcrypto/boring-solidity/contracts/Domain.sol@v1.2.0
 // License-Identifier: MIT
 // Based on code and smartness by Ross Campbell and Keno
 // Uses immutable to store the domain separator to reduce gas usage
@@ -166,7 +164,7 @@ contract Domain {
     // It's named internal to allow making it public from the contract that uses it by creating a simple view function
     // with the desired public name, such as DOMAIN_SEPARATOR or domainSeparator.
     // solhint-disable-next-line func-name-mixedcase
-    function _domainSeparator() internal view returns (bytes32) {
+    function DOMAIN_SEPARATOR() public view returns (bytes32) {
         uint256 chainId;
         assembly {
             chainId := chainid()
@@ -175,11 +173,11 @@ contract Domain {
     }
 
     function _getDigest(bytes32 dataHash) internal view returns (bytes32 digest) {
-        digest = keccak256(abi.encodePacked(EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA, _domainSeparator(), dataHash));
+        digest = keccak256(abi.encodePacked(EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA, DOMAIN_SEPARATOR(), dataHash));
     }
 }
 
-// File @boringcrypto/boring-solidity/contracts/ERC20.sol@v1.1.0
+// File @boringcrypto/boring-solidity/contracts/ERC20.sol@v1.2.0
 // License-Identifier: MIT
 
 // solhint-disable no-inline-assembly
@@ -290,7 +288,7 @@ contract ERC20 is ERC20Data, Domain {
     }
 }
 
-// File @boringcrypto/boring-solidity/contracts/interfaces/IMasterContract.sol@v1.1.0
+// File @boringcrypto/boring-solidity/contracts/interfaces/IMasterContract.sol@v1.2.0
 // License-Identifier: MIT
 
 interface IMasterContract {
@@ -301,7 +299,7 @@ interface IMasterContract {
     function init(bytes calldata data) external payable;
 }
 
-// File @boringcrypto/boring-solidity/contracts/libraries/BoringRebase.sol@v1.1.0
+// File @boringcrypto/boring-solidity/contracts/libraries/BoringRebase.sol@v1.2.0
 // License-Identifier: MIT
 
 struct Rebase {
@@ -397,7 +395,7 @@ library RebaseLibrary {
     }
 }
 
-// File @boringcrypto/boring-solidity/contracts/interfaces/IERC20.sol@v1.1.0
+// File @boringcrypto/boring-solidity/contracts/interfaces/IERC20.sol@v1.2.0
 // License-Identifier: MIT
 
 interface IERC20 {
@@ -424,7 +422,7 @@ interface IERC20 {
     ) external;
 }
 
-// File @boringcrypto/boring-solidity/contracts/libraries/BoringERC20.sol@v1.1.0
+// File @boringcrypto/boring-solidity/contracts/libraries/BoringERC20.sol@v1.2.0
 // License-Identifier: MIT
 
 library BoringERC20 {
@@ -434,12 +432,30 @@ library BoringERC20 {
     bytes4 private constant SIG_TRANSFER = 0xa9059cbb; // transfer(address,uint256)
     bytes4 private constant SIG_TRANSFER_FROM = 0x23b872dd; // transferFrom(address,address,uint256)
 
+    function returnDataToString(bytes memory data) internal pure returns (string memory) {
+        if (data.length >= 64) {
+            return abi.decode(data, (string));
+        } else if (data.length == 32) {
+            uint8 i = 0;
+            while (i < 32 && data[i] != 0) {
+                i++;
+            }
+            bytes memory bytesArray = new bytes(i);
+            for (i = 0; i < 32 && data[i] != 0; i++) {
+                bytesArray[i] = data[i];
+            }
+            return string(bytesArray);
+        } else {
+            return "???";
+        }
+    }
+
     /// @notice Provides a safe ERC20.symbol version which returns '???' as fallback string.
     /// @param token The address of the ERC-20 token contract.
     /// @return (string) Token symbol.
     function safeSymbol(IERC20 token) internal view returns (string memory) {
         (bool success, bytes memory data) = address(token).staticcall(abi.encodeWithSelector(SIG_SYMBOL));
-        return success && data.length > 0 ? abi.decode(data, (string)) : "???";
+        return success ? returnDataToString(data) : "???";
     }
 
     /// @notice Provides a safe ERC20.name version which returns '???' as fallback string.
@@ -447,7 +463,7 @@ library BoringERC20 {
     /// @return (string) Token name.
     function safeName(IERC20 token) internal view returns (string memory) {
         (bool success, bytes memory data) = address(token).staticcall(abi.encodeWithSelector(SIG_NAME));
-        return success && data.length > 0 ? abi.decode(data, (string)) : "???";
+        return success ? returnDataToString(data) : "???";
     }
 
     /// @notice Provides a safe ERC20.decimals version which returns '18' as fallback value.
@@ -459,7 +475,7 @@ library BoringERC20 {
     }
 }
 
-// File @sushiswap/bentobox-sdk/contracts/IBatchFlashBorrower.sol@v1.0.0
+// File @sushiswap/bentobox-sdk/contracts/IBatchFlashBorrower.sol@v1.0.1
 // License-Identifier: MIT
 
 interface IBatchFlashBorrower {
@@ -472,7 +488,7 @@ interface IBatchFlashBorrower {
     ) external;
 }
 
-// File @sushiswap/bentobox-sdk/contracts/IFlashBorrower.sol@v1.0.0
+// File @sushiswap/bentobox-sdk/contracts/IFlashBorrower.sol@v1.0.1
 // License-Identifier: MIT
 
 interface IFlashBorrower {
@@ -485,7 +501,7 @@ interface IFlashBorrower {
     ) external;
 }
 
-// File @sushiswap/bentobox-sdk/contracts/IStrategy.sol@v1.0.0
+// File @sushiswap/bentobox-sdk/contracts/IStrategy.sol@v1.0.1
 // License-Identifier: MIT
 
 interface IStrategy {
@@ -503,7 +519,7 @@ interface IStrategy {
     function exit(uint256 balance) external returns (int256 amountAdded);
 }
 
-// File @sushiswap/bentobox-sdk/contracts/IBentoBoxV1.sol@v1.0.0
+// File @sushiswap/bentobox-sdk/contracts/IBentoBoxV1.sol@v1.0.1
 // License-Identifier: MIT
 
 interface IBentoBoxV1 {
@@ -682,6 +698,13 @@ interface IOracle {
     /// @return rate The rate of the requested asset / pair / pool.
     function peek(bytes calldata data) external view returns (bool success, uint256 rate);
 
+    /// @notice Check the current spot exchange rate without any state changes. For oracles like TWAP this will be different from peek().
+    /// @param data Usually abi encoded, implementation specific data that contains information and arguments to & about the oracle.
+    /// For example:
+    /// (string memory collateralSymbol, string memory assetSymbol, uint256 division) = abi.decode(data, (string, string, uint256));
+    /// @return rate The rate of the requested asset / pair / pool.
+    function peekSpot(bytes calldata data) external view returns (uint256 rate);
+
     /// @notice Returns a human readable (short) name about this oracle.
     /// @param data Usually abi encoded, implementation specific data that contains information and arguments to & about the oracle.
     /// For example:
@@ -822,9 +845,9 @@ contract KashiPairMediumRiskV1 is ERC20, BoringOwnable, IMasterContract {
     uint256 private constant FULL_UTILIZATION_MINUS_MAX = FULL_UTILIZATION - MAXIMUM_TARGET_UTILIZATION;
     uint256 private constant FACTOR_PRECISION = 1e18;
 
-    uint64 private constant STARTING_INTEREST_PER_SECOND = 68493150675; // approx 1% APR
-    uint64 private constant MINIMUM_INTEREST_PER_SECOND = 17123287665; // approx 0.25% APR
-    uint64 private constant MAXIMUM_INTEREST_PER_SECOND = 68493150675000; // approx 1000% APR
+    uint64 private constant STARTING_INTEREST_PER_SECOND = 317097920; // approx 1% APR
+    uint64 private constant MINIMUM_INTEREST_PER_SECOND = 79274480; // approx 0.25% APR
+    uint64 private constant MAXIMUM_INTEREST_PER_SECOND = 317097920000; // approx 1000% APR
     uint256 private constant INTEREST_ELASTICITY = 28800e36; // Half or double in 28800 seconds (8 hours) if linear
 
     uint256 private constant EXCHANGE_RATE_PRECISION = 1e18;
@@ -1161,6 +1184,7 @@ contract KashiPairMediumRiskV1 is ERC20, BoringOwnable, IMasterContract {
     uint8 internal constant ACTION_BORROW = 5;
     uint8 internal constant ACTION_GET_REPAY_SHARE = 6;
     uint8 internal constant ACTION_GET_REPAY_PART = 7;
+    uint8 internal constant ACTION_ACCRUE = 8;
 
     // Functions that don't need accrue to be called
     uint8 internal constant ACTION_ADD_COLLATERAL = 10;
@@ -1358,7 +1382,7 @@ contract KashiPairMediumRiskV1 is ERC20, BoringOwnable, IMasterContract {
 
     /// @notice Handles the liquidation of users' balances, once the users' amount of collateral is too low.
     /// @param users An array of user addresses.
-    /// @param maxBorrowParts A one-to-one mapping to `users`, contains partial borrow amounts (to liquidate) of the respective user.
+    /// @param maxBorrowParts A one-to-one mapping to `users`, contains maximum (partial) borrow amounts (to liquidate) of the respective user.
     /// @param to Address of the receiver in open liquidations if `swapper` is zero.
     /// @param swapper Contract address of the `ISwapper` implementation. Swappers are restricted for closed liquidations. See `setSwapper`.
     /// @param open True to perform a open liquidation else False.

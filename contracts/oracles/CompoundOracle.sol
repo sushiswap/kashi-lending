@@ -65,6 +65,12 @@ contract CompoundOracle is IOracle {
         return (true, uint256(1e36).mul(_peekPrice(assetSymbol)) / _peekPrice(collateralSymbol) / division);
     }
 
+    // Check the current spot exchange rate without any state changes
+    /// @inheritdoc IOracle
+    function peekSpot(bytes calldata data) external view override returns (uint256 rate) {
+        (, rate) = peek(data);
+    }
+
     /// @inheritdoc IOracle
     function name(bytes calldata) public view override returns (string memory) {
         return "Compound";

@@ -88,6 +88,14 @@ contract SimpleSLPTWAP0Oracle is IOracle {
         return (true, priceAverage);
     }
 
+    // Check the current spot exchange rate without any state changes
+    /// @inheritdoc IOracle
+    function peekSpot(bytes calldata data) external view override returns (uint256 rate) {
+        IUniswapV2Pair pair = abi.decode(data, (IUniswapV2Pair));
+        (uint256 reserve0, uint256 reserve1, ) = pair.getReserves();
+        rate = reserve1.mul(1e18) / reserve0;
+    }
+
     /// @inheritdoc IOracle
     function name(bytes calldata) public view override returns (string memory) {
         return "SushiSwap TWAP";

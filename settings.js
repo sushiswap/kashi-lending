@@ -20,6 +20,15 @@ module.exports = {
                         },
                     },
                 },
+                "contracts/flat/BentoBoxFlat.sol": {
+                    version: "0.6.12",
+                    settings: {
+                        optimizer: {
+                            enabled: true,
+                            runs: 999999,
+                        },
+                    },
+                },
                 "contracts/flat/KashiPairFlat.sol": {
                     version: "0.6.12",
                     settings: {
@@ -34,7 +43,7 @@ module.exports = {
                     settings: {
                         optimizer: {
                             enabled: true,
-                            runs: 50000,
+                            runs: 999999,
                         },
                     },
                 },
@@ -47,6 +56,7 @@ module.exports = {
             "libraries/FixedPoint.sol",
             "libraries/FullMath.sol",
             "libraries/SignedSafeMath.sol",
+            "flat/BentoBoxFlat.sol",
             "flat/KashiPairFlat.sol",
             "flat/SushiSwapSwapperFlat.sol",
         ],
