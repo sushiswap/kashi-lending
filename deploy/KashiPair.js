@@ -490,6 +490,11 @@ module.exports = async function (hre) {
     console.log("Balance:", (await funder.getBalance()).div("1000000000000000000").toString())
     const deployerBalance = await deployer.getBalance()
 
+    let sushiOwner = "0x10601b88F47e5FAfE9Da5Ac855c9E98e79903280"
+    if (chainId == 1) {
+        let sushiOwner = "0x19B3Eb3Af5D93b77a5619b047De0EED7115A19e7"
+    }
+
     const gasPrice = await funder.provider.getGasPrice()
     let multiplier = hre.network.tags && hre.network.tags.staging ? 2 : 1
     let finalGasPrice = gasPrice.mul(multiplier)
@@ -561,7 +566,6 @@ module.exports = async function (hre) {
         (await deployments.get("KashiPairMediumRiskV1")).address
     )
     const swapper = (await hre.ethers.getContractFactory("SushiSwapSwapperV1")).attach((await deployments.get("SushiSwapSwapperV1")).address)
-    const newOwner = "0x30a0911731f6eC80c87C4b99f27c254639A3Abcd"
 
     console.log("Whitelisting Swapper")
     tx = await kashipair.connect(deployer).setSwapper(swapper.address, true, {
@@ -570,7 +574,7 @@ module.exports = async function (hre) {
     })
     await tx.wait()
     console.log("Update KashiPair Owner")
-    tx = await kashipair.connect(deployer).transferOwnership(newOwner, true, false, {
+    tx = await kashipair.connect(deployer).transferOwnership(sushiOwner, true, false, {
         gasLimit: 100000,
         gasPrice: finalGasPrice,
     })
@@ -585,7 +589,7 @@ module.exports = async function (hre) {
     await tx.wait()
 
     console.log("Update BentoBox Owner")
-    await bentobox.transferOwnership(newOwner, true, false, {
+    await bentobox.transferOwnership(sushiOwner, true, false, {
         gasLimit: 100000,
         gasPrice: finalGasPrice,
     })

@@ -37,7 +37,10 @@ contract CompositeOracle is IOracle {
     // Check the current spot exchange rate without any state changes
     /// @inheritdoc IOracle
     function peekSpot(bytes calldata data) external view override returns (uint256 rate) {
-        (, rate) = peek(data);
+        (IOracle oracle1, IOracle oracle2, bytes memory data1, bytes memory data2) = abi.decode(data, (IOracle, IOracle, bytes, bytes));
+        uint256 price1 = oracle1.peekSpot(data1);
+        uint256 price2 = oracle2.peekSpot(data2);
+        return price1.mul(price2) / 10**18;
     }
 
     /// @inheritdoc IOracle
