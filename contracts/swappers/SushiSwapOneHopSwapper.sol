@@ -13,7 +13,7 @@ contract SushiSwapOneHopSwapper is ISwapper {
     IBentoBoxV1 public immutable bentoBox;
     IUniswapV2Factory public immutable factory;
     IERC20 public immutable middleToken;
-    bytes32 public pairCodeHash;
+    bytes32 public immutable pairCodeHash;
 
     constructor(
         IBentoBoxV1 bentoBox_,

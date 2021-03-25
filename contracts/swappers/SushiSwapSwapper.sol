@@ -12,7 +12,7 @@ contract SushiSwapSwapper is ISwapper {
     // Local variables
     IBentoBoxV1 public immutable bentoBox;
     IUniswapV2Factory public immutable factory;
-    bytes32 public pairCodeHash;
+    bytes32 public immutable pairCodeHash;
 
     constructor(
         IBentoBoxV1 bentoBox_,
