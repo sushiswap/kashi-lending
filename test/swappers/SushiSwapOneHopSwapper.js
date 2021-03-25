@@ -2,7 +2,7 @@ const _ = require("lodash")
 const { expect } = require("chai")
 const { prepare, getBigNumber, createFixture } = require("@sushiswap/hardhat-framework")
 
-let cmd, fixture;
+let cmd, fixture
 
 describe("SushiSwapOneHopSwapper", function () {
     before(async function () {
@@ -20,7 +20,7 @@ describe("SushiSwapOneHopSwapper", function () {
             //
             //  swapperA, swapperB, swapperC
             //
-            for (const letter of ['a', 'b', 'c']) {
+            for (const letter of ["a", "b", "c"]) {
                 await cmd.deploy(
                     `swapper${letter.toUpperCase()}`,
                     "SushiSwapOneHopSwapper",
@@ -110,7 +110,13 @@ describe("SushiSwapOneHopSwapper", function () {
                 .to.emit(this.a, "Transfer")
                 .withArgs(this.bentoBox.address, this.sushiSwapPairAB.address, 20_000_000_000_000_000_000n)
                 .to.emit(this.bentoBox, "LogWithdraw")
-                .withArgs(this.a.address, this.swapperB.address, this.sushiSwapPairAB.address, 20_000_000_000_000_000_000n, 20_000_000_000_000_000_000n)
+                .withArgs(
+                    this.a.address,
+                    this.swapperB.address,
+                    this.sushiSwapPairAB.address,
+                    20_000_000_000_000_000_000n,
+                    20_000_000_000_000_000_000n
+                )
                 .to.emit(this.b, "Transfer")
                 .withArgs(this.sushiSwapPairAB.address, this.sushiSwapPairBC.address, 1_993_205_109n)
                 .to.emit(this.c, "Transfer")
@@ -130,7 +136,13 @@ describe("SushiSwapOneHopSwapper", function () {
                 .to.emit(this.a, "Transfer")
                 .withArgs(this.bentoBox.address, this.sushiSwapPairAB.address, 20_000_000_000_000_000_000n)
                 .to.emit(this.bentoBox, "LogWithdraw")
-                .withArgs(this.a.address, this.swapperB.address, this.sushiSwapPairAB.address, 20_000_000_000_000_000_000n, 20_000_000_000_000_000_000n)
+                .withArgs(
+                    this.a.address,
+                    this.swapperB.address,
+                    this.sushiSwapPairAB.address,
+                    20_000_000_000_000_000_000n,
+                    20_000_000_000_000_000_000n
+                )
                 .to.emit(this.b, "Transfer")
                 .withArgs(this.sushiSwapPairAB.address, this.sushiSwapPairBC.address, 1_993_205_109n)
                 .to.emit(this.c, "Transfer")
@@ -146,8 +158,9 @@ describe("SushiSwapOneHopSwapper", function () {
             await this.a.approve(this.bentoBox.address, getBigNumber(100))
             await this.bentoBox.deposit(this.a.address, this.alice.address, this.alice.address, getBigNumber(100), 0)
             await this.bentoBox.transfer(this.a.address, this.alice.address, this.swapperB.address, getBigNumber(20))
-            await expect(this.swapperB.swap(this.a.address, this.c.address, this.alice.address, 19_864_359_944_231n, getBigNumber(20)))
-                .to.be.revertedWith("BoringMath: Underflow")
+            await expect(
+                this.swapperB.swap(this.a.address, this.c.address, this.alice.address, 19_864_359_944_231n, getBigNumber(20))
+            ).to.be.revertedWith("BoringMath: Underflow")
         })
 
         it("should swap in opposite direction", async function () {
@@ -211,7 +224,9 @@ describe("SushiSwapOneHopSwapper", function () {
             await this.c.approve(this.bentoBox.address, getBigNumber(100, 12))
             await this.bentoBox.deposit(this.c.address, this.alice.address, this.alice.address, getBigNumber(100, 12), 0)
             await this.bentoBox.transfer(this.c.address, this.alice.address, this.swapperB.address, getBigNumber(20, 12))
-            await expect(this.swapperB.swap(this.c.address, this.a.address, this.alice.address, 19_864_359_944_230_665_609n, getBigNumber(20, 12)))
+            await expect(
+                this.swapperB.swap(this.c.address, this.a.address, this.alice.address, 19_864_359_944_230_665_609n, getBigNumber(20, 12))
+            )
                 .to.emit(this.c, "Transfer")
                 .withArgs(this.bentoBox.address, this.sushiSwapPairBC.address, 20_000_000_000_000n)
                 .to.emit(this.bentoBox, "LogWithdraw")
@@ -222,7 +237,6 @@ describe("SushiSwapOneHopSwapper", function () {
                 .withArgs(this.sushiSwapPairAB.address, this.bentoBox.address, 19_864_359_944_230_665_609n)
                 .to.emit(this.bentoBox, "LogDeposit")
                 .withArgs(this.a.address, this.bentoBox.address, this.alice.address, 19_864_359_944_230_665_609n, 19_864_359_944_230_665_609n)
-
         })
 
         it("should not swap in opposite direction with minimum not met", async function () {
@@ -232,8 +246,9 @@ describe("SushiSwapOneHopSwapper", function () {
             await this.c.approve(this.bentoBox.address, getBigNumber(100, 12))
             await this.bentoBox.deposit(this.c.address, this.alice.address, this.alice.address, getBigNumber(100, 12), 0)
             await this.bentoBox.transfer(this.c.address, this.alice.address, this.swapperB.address, getBigNumber(20, 12))
-            await expect(this.swapperB.swap(this.c.address, this.a.address, this.alice.address, 19_864_359_944_230_665_610n, getBigNumber(20)))
-                .to.be.revertedWith("BoringMath: Underflow")
+            await expect(
+                this.swapperB.swap(this.c.address, this.a.address, this.alice.address, 19_864_359_944_230_665_610n, getBigNumber(20))
+            ).to.be.revertedWith("BoringMath: Underflow")
         })
 
         it("should swap with different reserve and decimals ratios", async function () {
@@ -355,7 +370,13 @@ describe("SushiSwapOneHopSwapper", function () {
                 .to.emit(this.a, "Transfer")
                 .withArgs(this.bentoBox.address, this.sushiSwapPairAB.address, 20_136_675_750_711_909_650n)
                 .to.emit(this.bentoBox, "LogWithdraw")
-                .withArgs(this.a.address, this.swapperB.address, this.sushiSwapPairAB.address, 20_136_675_750_711_909_650n, 20_136_675_750_711_909_650n)
+                .withArgs(
+                    this.a.address,
+                    this.swapperB.address,
+                    this.sushiSwapPairAB.address,
+                    20_136_675_750_711_909_650n,
+                    20_136_675_750_711_909_650n
+                )
                 .to.emit(this.b, "Transfer")
                 .withArgs(this.sushiSwapPairAB.address, this.sushiSwapPairBC.address, 2_006_820_783n)
                 .to.emit(this.c, "Transfer")
@@ -386,7 +407,13 @@ describe("SushiSwapOneHopSwapper", function () {
                 .to.emit(this.a, "Transfer")
                 .withArgs(this.bentoBox.address, this.sushiSwapPairAB.address, 20_136_675_750_711_909_650n)
                 .to.emit(this.bentoBox, "LogWithdraw")
-                .withArgs(this.a.address, this.swapperB.address, this.sushiSwapPairAB.address, 20_136_675_750_711_909_650n, 20_136_675_750_711_909_650n)
+                .withArgs(
+                    this.a.address,
+                    this.swapperB.address,
+                    this.sushiSwapPairAB.address,
+                    20_136_675_750_711_909_650n,
+                    20_136_675_750_711_909_650n
+                )
                 .to.emit(this.b, "Transfer")
                 .withArgs(this.sushiSwapPairAB.address, this.sushiSwapPairBC.address, 2_006_820_783n)
                 .to.emit(this.c, "Transfer")
@@ -550,243 +577,221 @@ describe("SushiSwapOneHopSwapper", function () {
             {
                 AB: { A: 50_000n, B: 50_000n },
                 AC: { A: 50_000n, C: 50_000n },
-                BC: { B: 50_000n, C: 50_000n }
+                BC: { B: 50_000n, C: 50_000n },
             },
             {
                 AB: { A: 1_000n, B: 2_000n },
                 AC: { A: 100_000n, C: 1_000n },
-                BC: { B: 350_000n, C: 54_321n }
+                BC: { B: 350_000n, C: 54_321n },
             },
             {
                 AB: { A: 314_159n, B: 271_828n },
                 AC: { A: 141_421n, C: 693_147n },
-                BC: { B: 618n, C: 161_803n }
-            }
+                BC: { B: 618n, C: 161_803n },
+            },
         ]
         const decimalFactors = {
             A: 1_000_000_000_000_000_000n,
             B: 100_000_000n,
-            C: 1_000_000_000_000n
+            C: 1_000_000_000_000n,
         }
 
-        triples.forEach(triple => reserves.forEach(res => {
-            // Letters
-            const [f, m, t] = triple.split("")
-            const [F, M, T] = triple.toUpperCase().split("")
+        triples.forEach((triple) =>
+            reserves.forEach((res) => {
+                // Letters
+                const [f, m, t] = triple.split("")
+                const [F, M, T] = triple.toUpperCase().split("")
 
-            // Pairs and reserves
-            const FM = F < M ? `${F}${M}` : `${M}${F}`
-            const MT = M < T ? `${M}${T}` : `${T}${M}`
-            const resFromMiddleX = res[FM][F]
-            const resFromMiddleY = res[FM][M]
-            const resMiddleToX = res[MT][M]
-            const resMiddleToY = res[MT][T]
+                // Pairs and reserves
+                const FM = F < M ? `${F}${M}` : `${M}${F}`
+                const MT = M < T ? `${M}${T}` : `${T}${M}`
+                const resFromMiddleX = res[FM][F]
+                const resFromMiddleY = res[FM][M]
+                const resMiddleToX = res[MT][M]
+                const resMiddleToY = res[MT][T]
 
-            // Decimals
-            const [dFrom, dMiddle, dTo] = [F, M, T].map(k => decimalFactors[k])
+                // Decimals
+                const [dFrom, dMiddle, dTo] = [F, M, T].map((k) => decimalFactors[k])
 
-            const setup = async self => {
-                // Tokens
-                const from = self[f]
-                const middle = self[m]
-                const to = self[t]
+                const setup = async (self) => {
+                    // Tokens
+                    const from = self[f]
+                    const middle = self[m]
+                    const to = self[t]
 
-                await cmd.addPair("pairFM", from, middle, resFromMiddleX, resFromMiddleY)
-                await cmd.addPair("pairMT", middle, to, resMiddleToX, resMiddleToY)
+                    await cmd.addPair("pairFM", from, middle, resFromMiddleX, resFromMiddleY)
+                    await cmd.addPair("pairMT", middle, to, resMiddleToX, resMiddleToY)
 
-                const swapper = self[`swapper${M}`]
+                    const swapper = self[`swapper${M}`]
 
-                return { from, middle, to, swapper }
-            }
+                    return { from, middle, to, swapper }
+                }
 
-            // For swap
-            //
-            // Trade in `amountTraded` for some amount of the other token.
-            //
-            // out <= Y * in * 997 / (1000 * X + in * 997)
-            //
-            // (The order is only different to make my syntax highlighter happy)
-            const amountTraded = 20n * dFrom
-            const swapAmountMiddle = 997n * resFromMiddleY * dMiddle * amountTraded /
-                (1000n * resFromMiddleX * dFrom + amountTraded * 997n)
-            const swapAmountTo = 997n * resMiddleToY * dTo * swapAmountMiddle /
-                (1000n * resMiddleToX * dMiddle + swapAmountMiddle * 997n)
+                // For swap
+                //
+                // Trade in `amountTraded` for some amount of the other token.
+                //
+                // out <= Y * in * 997 / (1000 * X + in * 997)
+                //
+                // (The order is only different to make my syntax highlighter happy)
+                const amountTraded = 20n * dFrom
+                const swapAmountMiddle =
+                    (997n * resFromMiddleY * dMiddle * amountTraded) / (1000n * resFromMiddleX * dFrom + amountTraded * 997n)
+                const swapAmountTo = (997n * resMiddleToY * dTo * swapAmountMiddle) / (1000n * resMiddleToX * dMiddle + swapAmountMiddle * 997n)
 
-            it(`should swap ${F} -> ${M} -> ${T}`, async function () {
-                const { from, middle, to, swapper } = await setup(this)
+                it(`should swap ${F} -> ${M} -> ${T}`, async function () {
+                    const { from, middle, to, swapper } = await setup(this)
 
-                await from.approve(this.bentoBox.address, 100n * dFrom)
-                await this.bentoBox.deposit(from.address, this.alice.address, this.alice.address, 100n * dFrom, 0)
-                await this.bentoBox.transfer(from.address, this.alice.address, swapper.address, amountTraded)
-                await expect(swapper.swap(from.address, to.address, this.alice.address, 0, amountTraded))
-                    .to.emit(from, "Transfer")
-                    .withArgs(this.bentoBox.address, this.pairFM.address, amountTraded)
-                    .to.emit(this.bentoBox, "LogWithdraw")
-                    .withArgs(from.address, swapper.address, this.pairFM.address, amountTraded, amountTraded)
-                    .to.emit(middle, "Transfer")
-                    .withArgs(this.pairFM.address, this.pairMT.address, swapAmountMiddle)
-                    .to.emit(to, "Transfer")
-                    .withArgs(this.pairMT.address, this.bentoBox.address, swapAmountTo)
-                    .to.emit(this.bentoBox, "LogDeposit")
-                    .withArgs(to.address, this.bentoBox.address, this.alice.address, swapAmountTo, swapAmountTo)
-            })
+                    await from.approve(this.bentoBox.address, 100n * dFrom)
+                    await this.bentoBox.deposit(from.address, this.alice.address, this.alice.address, 100n * dFrom, 0)
+                    await this.bentoBox.transfer(from.address, this.alice.address, swapper.address, amountTraded)
+                    await expect(swapper.swap(from.address, to.address, this.alice.address, 0, amountTraded))
+                        .to.emit(from, "Transfer")
+                        .withArgs(this.bentoBox.address, this.pairFM.address, amountTraded)
+                        .to.emit(this.bentoBox, "LogWithdraw")
+                        .withArgs(from.address, swapper.address, this.pairFM.address, amountTraded, amountTraded)
+                        .to.emit(middle, "Transfer")
+                        .withArgs(this.pairFM.address, this.pairMT.address, swapAmountMiddle)
+                        .to.emit(to, "Transfer")
+                        .withArgs(this.pairMT.address, this.bentoBox.address, swapAmountTo)
+                        .to.emit(this.bentoBox, "LogDeposit")
+                        .withArgs(to.address, this.bentoBox.address, this.alice.address, swapAmountTo, swapAmountTo)
+                })
 
-            it(`should swap ${F} -> ${M} -> ${T} with minimum set`, async function () {
-                const { from, middle, to, swapper } = await setup(this)
+                it(`should swap ${F} -> ${M} -> ${T} with minimum set`, async function () {
+                    const { from, middle, to, swapper } = await setup(this)
 
-                await from.approve(this.bentoBox.address, 100n * dFrom)
-                await this.bentoBox.deposit(from.address, this.alice.address, this.alice.address, 100n * dFrom, 0)
-                await this.bentoBox.transfer(from.address, this.alice.address, swapper.address, amountTraded)
-                await expect(swapper.swap(from.address, to.address, this.alice.address, swapAmountTo, amountTraded))
-                    .to.emit(from, "Transfer")
-                    .withArgs(this.bentoBox.address, this.pairFM.address, amountTraded)
-                    .to.emit(this.bentoBox, "LogWithdraw")
-                    .withArgs(from.address, swapper.address, this.pairFM.address, amountTraded, amountTraded)
-                    .to.emit(middle, "Transfer")
-                    .withArgs(this.pairFM.address, this.pairMT.address, swapAmountMiddle)
-                    .to.emit(to, "Transfer")
-                    .withArgs(this.pairMT.address, this.bentoBox.address, swapAmountTo)
-                    .to.emit(this.bentoBox, "LogDeposit")
-                    .withArgs(to.address, this.bentoBox.address, this.alice.address, swapAmountTo, swapAmountTo)
-            })
+                    await from.approve(this.bentoBox.address, 100n * dFrom)
+                    await this.bentoBox.deposit(from.address, this.alice.address, this.alice.address, 100n * dFrom, 0)
+                    await this.bentoBox.transfer(from.address, this.alice.address, swapper.address, amountTraded)
+                    await expect(swapper.swap(from.address, to.address, this.alice.address, swapAmountTo, amountTraded))
+                        .to.emit(from, "Transfer")
+                        .withArgs(this.bentoBox.address, this.pairFM.address, amountTraded)
+                        .to.emit(this.bentoBox, "LogWithdraw")
+                        .withArgs(from.address, swapper.address, this.pairFM.address, amountTraded, amountTraded)
+                        .to.emit(middle, "Transfer")
+                        .withArgs(this.pairFM.address, this.pairMT.address, swapAmountMiddle)
+                        .to.emit(to, "Transfer")
+                        .withArgs(this.pairMT.address, this.bentoBox.address, swapAmountTo)
+                        .to.emit(this.bentoBox, "LogDeposit")
+                        .withArgs(to.address, this.bentoBox.address, this.alice.address, swapAmountTo, swapAmountTo)
+                })
 
-            it(`should not swap ${F} -> ${M} -> ${T} with minimum not met`, async function () {
-                const { from, middle, to, swapper } = await setup(this)
-                const cutoff = swapAmountTo + 1n;
+                it(`should not swap ${F} -> ${M} -> ${T} with minimum not met`, async function () {
+                    const { from, middle, to, swapper } = await setup(this)
+                    const cutoff = swapAmountTo + 1n
 
-                await from.approve(this.bentoBox.address, 100n * dFrom)
-                await this.bentoBox.deposit(from.address, this.alice.address, this.alice.address, 100n * dFrom, 0)
-                await this.bentoBox.transfer(from.address, this.alice.address, swapper.address, amountTraded)
-                await expect(swapper.swap(from.address, to.address, this.alice.address, cutoff, amountTraded))
-                    .to.be.revertedWith("BoringMath: Underflow")
-            })
-
-            // For swapExact
-            //
-            // Trade in some amount, for `amountTraded` of the other token
-            //
-            // in >= 1000 * X * out / (997 * (Y - out))
-            //
-            // Adding 1 in the end is "optimistically" rounding up: if the
-            // numerator and denominator do happen to divide evenly, then this
-            // calculation is off. However, because..
-            // - This is very unlikely to occur to begin with
-            // - Correctly rounding up costs more gas (AFAIK)
-            // - The discrepancy is on the order of 1 "wei"; less than the gas
-            // ..the swapper contract does it this way as well.
-            //
-            // Due to some of the reserve rations given, we have to "want" a
-            // considerably smaller amount than before for this to fit in
-            // Alice's budget:
-            const amountWanted = 123_456n;
-            const exactAmountMiddle = 1000n * resMiddleToX * dMiddle * amountWanted /
-                (997n * (resMiddleToY * dTo - amountWanted)) + 1n
-            const exactAmountFrom = 1000n * resFromMiddleX * dFrom * exactAmountMiddle /
-                (997n * (resFromMiddleY * dMiddle - exactAmountMiddle)) + 1n
-
-            const amountProvided = 30n * dFrom
-            const changeExpected = amountProvided - exactAmountFrom
-
-            // Some (but not all) of the swapExact amounts are real edge cases,
-            // when we ask for very small numbers. However, the contract
-            // performs as expected.
-            //
-            // console.log({
-            //     amountWanted,
-            //     exactAmountMiddle,
-            //     exactAmountFrom,
-            //     amountProvided,
-            //     changeExpected
-            // });
-
-            // If these fail, that is an error in the test setup, not the contract:
-            if (amountWanted > resMiddleToY * dTo + 1000n) {
-                console.error({ token: T, amountWanted, reserve: resMiddleToY });
-                throw new Error("Test setup: middle-to pair lacks the reserves")
-            }
-            if (exactAmountMiddle > resFromMiddleY * dMiddle + 1000n) {
-                throw new Error("Test setup: from-middle pair lacks the reserves")
-            }
-            if (changeExpected <= 0) {
-                throw new Error("Test setup: insufficient funds provided")
-            }
-
-            it(`should swap exact ${F} -> ${M} -> ${T}`, async function () {
-                const { from, middle, to, swapper } = await setup(this)
-
-                await from.approve(this.bentoBox.address, amountProvided)
-                await this.bentoBox.deposit(from.address, this.alice.address, this.alice.address, amountProvided, 0)
-                await this.bentoBox.transfer(from.address, this.alice.address, swapper.address, amountProvided)
-                await expect(
-                    swapper.swapExact(
-                        from.address,
-                        to.address,
-                        this.alice.address,
-                        this.bob.address,
-                        amountProvided,
-                        amountWanted
+                    await from.approve(this.bentoBox.address, 100n * dFrom)
+                    await this.bentoBox.deposit(from.address, this.alice.address, this.alice.address, 100n * dFrom, 0)
+                    await this.bentoBox.transfer(from.address, this.alice.address, swapper.address, amountTraded)
+                    await expect(swapper.swap(from.address, to.address, this.alice.address, cutoff, amountTraded)).to.be.revertedWith(
+                        "BoringMath: Underflow"
                     )
-                )
-                    .to.emit(from, "Transfer")
-                    .withArgs(this.bentoBox.address, this.pairFM.address, exactAmountFrom)
-                    .to.emit(this.bentoBox, "LogWithdraw")
-                    .withArgs(from.address, swapper.address, this.pairFM.address, exactAmountFrom, exactAmountFrom)
-                    .to.emit(middle, "Transfer")
-                    .withArgs(this.pairFM.address, this.pairMT.address, exactAmountMiddle)
-                    .to.emit(to, "Transfer")
-                    .withArgs(this.pairMT.address, this.bentoBox.address, amountWanted)
-                    .to.emit(this.bentoBox, "LogDeposit")
-                    .withArgs(to.address, this.bentoBox.address, this.alice.address, amountWanted, amountWanted)
-                    .to.emit(this.bentoBox, "LogTransfer")
-                    .withArgs(from.address, swapper.address, this.bob.address, changeExpected)
-            })
+                })
 
-            it(`should swap exact ${F} -> ${M} -> ${T} with just enough`, async function () {
-                const { from, middle, to, swapper } = await setup(this)
+                // For swapExact
+                //
+                // Trade in some amount, for `amountTraded` of the other token
+                //
+                // in >= 1000 * X * out / (997 * (Y - out))
+                //
+                // Adding 1 in the end is "optimistically" rounding up: if the
+                // numerator and denominator do happen to divide evenly, then this
+                // calculation is off. However, because..
+                // - This is very unlikely to occur to begin with
+                // - Correctly rounding up costs more gas (AFAIK)
+                // - The discrepancy is on the order of 1 "wei"; less than the gas
+                // ..the swapper contract does it this way as well.
+                //
+                // Due to some of the reserve rations given, we have to "want" a
+                // considerably smaller amount than before for this to fit in
+                // Alice's budget:
+                const amountWanted = 123_456n
+                const exactAmountMiddle = (1000n * resMiddleToX * dMiddle * amountWanted) / (997n * (resMiddleToY * dTo - amountWanted)) + 1n
+                const exactAmountFrom =
+                    (1000n * resFromMiddleX * dFrom * exactAmountMiddle) / (997n * (resFromMiddleY * dMiddle - exactAmountMiddle)) + 1n
 
-                await from.approve(this.bentoBox.address, amountProvided)
-                await this.bentoBox.deposit(from.address, this.alice.address, this.alice.address, amountProvided, 0)
-                await this.bentoBox.transfer(from.address, this.alice.address, swapper.address, exactAmountFrom)
-                await expect(
-                    swapper.swapExact(
-                        from.address,
-                        to.address,
-                        this.alice.address,
-                        this.bob.address,
-                        exactAmountFrom,
-                        amountWanted
+                const amountProvided = 30n * dFrom
+                const changeExpected = amountProvided - exactAmountFrom
+
+                // Some (but not all) of the swapExact amounts are real edge cases,
+                // when we ask for very small numbers. However, the contract
+                // performs as expected.
+                //
+                // console.log({
+                //     amountWanted,
+                //     exactAmountMiddle,
+                //     exactAmountFrom,
+                //     amountProvided,
+                //     changeExpected
+                // });
+
+                // If these fail, that is an error in the test setup, not the contract:
+                if (amountWanted > resMiddleToY * dTo + 1000n) {
+                    console.error({ token: T, amountWanted, reserve: resMiddleToY })
+                    throw new Error("Test setup: middle-to pair lacks the reserves")
+                }
+                if (exactAmountMiddle > resFromMiddleY * dMiddle + 1000n) {
+                    throw new Error("Test setup: from-middle pair lacks the reserves")
+                }
+                if (changeExpected <= 0) {
+                    throw new Error("Test setup: insufficient funds provided")
+                }
+
+                it(`should swap exact ${F} -> ${M} -> ${T}`, async function () {
+                    const { from, middle, to, swapper } = await setup(this)
+
+                    await from.approve(this.bentoBox.address, amountProvided)
+                    await this.bentoBox.deposit(from.address, this.alice.address, this.alice.address, amountProvided, 0)
+                    await this.bentoBox.transfer(from.address, this.alice.address, swapper.address, amountProvided)
+                    await expect(swapper.swapExact(from.address, to.address, this.alice.address, this.bob.address, amountProvided, amountWanted))
+                        .to.emit(from, "Transfer")
+                        .withArgs(this.bentoBox.address, this.pairFM.address, exactAmountFrom)
+                        .to.emit(this.bentoBox, "LogWithdraw")
+                        .withArgs(from.address, swapper.address, this.pairFM.address, exactAmountFrom, exactAmountFrom)
+                        .to.emit(middle, "Transfer")
+                        .withArgs(this.pairFM.address, this.pairMT.address, exactAmountMiddle)
+                        .to.emit(to, "Transfer")
+                        .withArgs(this.pairMT.address, this.bentoBox.address, amountWanted)
+                        .to.emit(this.bentoBox, "LogDeposit")
+                        .withArgs(to.address, this.bentoBox.address, this.alice.address, amountWanted, amountWanted)
+                        .to.emit(this.bentoBox, "LogTransfer")
+                        .withArgs(from.address, swapper.address, this.bob.address, changeExpected)
+                })
+
+                it(`should swap exact ${F} -> ${M} -> ${T} with just enough`, async function () {
+                    const { from, middle, to, swapper } = await setup(this)
+
+                    await from.approve(this.bentoBox.address, amountProvided)
+                    await this.bentoBox.deposit(from.address, this.alice.address, this.alice.address, amountProvided, 0)
+                    await this.bentoBox.transfer(from.address, this.alice.address, swapper.address, exactAmountFrom)
+                    await expect(
+                        swapper.swapExact(from.address, to.address, this.alice.address, this.bob.address, exactAmountFrom, amountWanted)
                     )
-                )
-                    .to.emit(from, "Transfer")
-                    .withArgs(this.bentoBox.address, this.pairFM.address, exactAmountFrom)
-                    .to.emit(this.bentoBox, "LogWithdraw")
-                    .withArgs(from.address, swapper.address, this.pairFM.address, exactAmountFrom, exactAmountFrom)
-                    .to.emit(middle, "Transfer")
-                    .withArgs(this.pairFM.address, this.pairMT.address, exactAmountMiddle)
-                    .to.emit(to, "Transfer")
-                    .withArgs(this.pairMT.address, this.bentoBox.address, amountWanted)
-                    .to.emit(this.bentoBox, "LogDeposit")
-                    .withArgs(to.address, this.bentoBox.address, this.alice.address, amountWanted, amountWanted)
-            })
+                        .to.emit(from, "Transfer")
+                        .withArgs(this.bentoBox.address, this.pairFM.address, exactAmountFrom)
+                        .to.emit(this.bentoBox, "LogWithdraw")
+                        .withArgs(from.address, swapper.address, this.pairFM.address, exactAmountFrom, exactAmountFrom)
+                        .to.emit(middle, "Transfer")
+                        .withArgs(this.pairFM.address, this.pairMT.address, exactAmountMiddle)
+                        .to.emit(to, "Transfer")
+                        .withArgs(this.pairMT.address, this.bentoBox.address, amountWanted)
+                        .to.emit(this.bentoBox, "LogDeposit")
+                        .withArgs(to.address, this.bentoBox.address, this.alice.address, amountWanted, amountWanted)
+                })
 
-            it(`should not swap exact ${F} -> ${M} -> ${T} with just too little`, async function () {
-                const { from, middle, to, swapper } = await setup(this)
-                const cutoff = exactAmountFrom - 1n;
+                it(`should not swap exact ${F} -> ${M} -> ${T} with just too little`, async function () {
+                    const { from, middle, to, swapper } = await setup(this)
+                    const cutoff = exactAmountFrom - 1n
 
-                await from.approve(this.bentoBox.address, amountProvided)
-                await this.bentoBox.deposit(from.address, this.alice.address, this.alice.address, amountProvided, 0)
-                await this.bentoBox.transfer(from.address, this.alice.address, swapper.address, exactAmountFrom)
-                await expect(
-                    swapper.swapExact(
-                        from.address,
-                        to.address,
-                        this.alice.address,
-                        this.bob.address,
-                        cutoff,
-                        amountWanted
-                    )
-                ).to.be.revertedWith("BoringMath: Underflow")
+                    await from.approve(this.bentoBox.address, amountProvided)
+                    await this.bentoBox.deposit(from.address, this.alice.address, this.alice.address, amountProvided, 0)
+                    await this.bentoBox.transfer(from.address, this.alice.address, swapper.address, exactAmountFrom)
+                    await expect(
+                        swapper.swapExact(from.address, to.address, this.alice.address, this.bob.address, cutoff, amountWanted)
+                    ).to.be.revertedWith("BoringMath: Underflow")
+                })
             })
-        }))
+        )
     })
 })
