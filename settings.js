@@ -83,6 +83,15 @@ module.exports = {
                         },
                     },
                 },
+                "contracts/flat/ChainlinkOracleV2Flat.sol": {
+                    version: "0.6.12",
+                    settings: {
+                        optimizer: {
+                            enabled: true,
+                            runs: 999999,
+                        },
+                    },
+                },
                 "contracts/flat/CompoundOracle.sol": {
                     version: "0.6.12",
                     settings: {

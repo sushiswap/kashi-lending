@@ -4,17 +4,9 @@ import "@boringcrypto/boring-solidity/contracts/libraries/BoringMath.sol";
 import "../interfaces/IOracle.sol";
 
 // Chainlink Aggregator
+
 interface IAggregator {
-    function latestRoundData()
-        external
-        view
-        returns (
-            uint80,
-            int256 answer,
-            uint256,
-            uint256,
-            uint80
-        );
+    function latestAnswer() external view returns (int256 answer);
 }
 
 contract ChainlinkOracle is IOracle {
@@ -26,20 +18,16 @@ contract ChainlinkOracle is IOracle {
         address multiply,
         address divide,
         uint256 decimals
-    ) public view returns (uint256) {
-        uint256 price = uint256(1e18);
+    ) internal view returns (uint256) {
+        uint256 price = uint256(1e36);
         if (multiply != address(0)) {
-            // We only care about the second value - the price
-            (, int256 priceC, , , ) = IAggregator(multiply).latestRoundData();
-            price = price.mul(uint256(priceC));
+            price = price.mul(uint256(IAggregator(multiply).latestAnswer()));
         } else {
             price = price.mul(1e18);
         }
 
         if (divide != address(0)) {
-            // We only care about the second value - the price
-            (, int256 priceC, , , ) = IAggregator(divide).latestRoundData();
-            price = price / uint256(priceC);
+            price = price / uint256(IAggregator(divide).latestAnswer());
         }
 
         return price / decimals;

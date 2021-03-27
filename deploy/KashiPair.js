@@ -14,6 +14,7 @@ module.exports = async function (hre) {
     const signers = await hre.ethers.getSigners()
     const deployer = signers[0]
     const funder = signers[1]
+
     const chainId = await hre.getChainId()
     if (chainId == "31337" || hre.network.config.forking) {
         return
@@ -27,14 +28,19 @@ module.exports = async function (hre) {
     const deployerBalance = await deployer.getBalance()
 
     let sushiOwner = "0x10601b88F47e5FAfE9Da5Ac855c9E98e79903280"
-    if (chainId == 1) {
+    if (chainId == "1") {
         let sushiOwner = "0x19B3Eb3Af5D93b77a5619b047De0EED7115A19e7"
     }
 
-    const gasPrice = await funder.provider.getGasPrice()
+    let gasPrice = await funder.provider.getGasPrice()
+    if (chainId == 1) {
+        gasPrice = gasPrice.add("20000000000")
+    }
     let multiplier = hre.network.tags && hre.network.tags.staging ? 2 : 1
     let finalGasPrice = gasPrice.mul(multiplier)
-    const gasLimit = 5000000 + 5500000 + 1300000 + 300000 + 1000000 + 1000000 + 500000 + 5200000
+
+    //const gasLimit = 5000000 + 5500000 + 1300000 + 300000 + 1000000 + 1000000 + 500000 + 5200000 + 450000 + 500000
+    gasLimit = 450000
     if (chainId == "88" || chainId == "89") {
         finalGasPrice = getBigNumber("10000", 9)
     }
@@ -49,23 +55,18 @@ module.exports = async function (hre) {
     console.log("InitCodeHash is", initCodeHash)
 
     console.log("Deployer balance", deployerBalance.toString())
-    console.log("Needed", finalGasPrice.mul(gasLimit + 500000).toString(), finalGasPrice.toString(), gasLimit.toString())
-    if (deployerBalance.lt(finalGasPrice.mul(gasLimit + 500000))) {
-        console.log(
-            "Sending native token to fund deployment:",
-            finalGasPrice
-                .mul(gasLimit + 500000)
-                .sub(deployerBalance)
-                .toString()
-        )
+    console.log("Needed", finalGasPrice.mul(gasLimit).toString(), finalGasPrice.toString(), gasLimit.toString())
+    if (deployerBalance.lt(finalGasPrice.mul(gasLimit))) {
+        console.log("Sending native token to fund deployment:", finalGasPrice.mul(gasLimit).sub(deployerBalance).toString())
         let tx = await funder.sendTransaction({
             to: deployer.address,
-            value: finalGasPrice.mul(gasLimit + 500000).sub(deployerBalance),
+            value: finalGasPrice.mul(gasLimit).sub(deployerBalance),
             gasPrice: gasPrice.mul(multiplier),
         })
         await tx.wait()
     }
 
+    /*
     console.log("Deploying Bentobox contract")
     tx = await hre.deployments.deploy("BentoBoxV1", {
         from: deployer.address,
@@ -78,7 +79,7 @@ module.exports = async function (hre) {
 
     const bentobox = (await hre.ethers.getContractFactory("BentoBoxV1")).attach((await deployments.get("BentoBoxV1")).address)
 
-    console.log("Deploying KashiPair contract")
+    console.log("Deploying KashiPair contract, using BentoBox", bentobox.address)
     tx = await hre.deployments.deploy("KashiPairMediumRiskV1", {
         from: deployer.address,
         args: [bentobox.address],
@@ -125,16 +126,6 @@ module.exports = async function (hre) {
         log: true,
         deterministicDeployment: false,
         gasLimit: 1000000,
-        gasPrice: finalGasPrice,
-    })
-
-    console.log("Deploying ChainlinkOracle contract")
-    tx = await hre.deployments.deploy("ChainlinkOracleV1", {
-        from: deployer.address,
-        args: [],
-        log: true,
-        deterministicDeployment: false,
-        gasLimit: 500000,
         gasPrice: finalGasPrice,
     })
 
@@ -208,6 +199,16 @@ module.exports = async function (hre) {
     console.log("Update BentoBox Owner")
     await bentobox.transferOwnership(sushiOwner, true, false, {
         gasLimit: 100000,
+        gasPrice: finalGasPrice,
+    })*/
+
+    console.log("Deploying ChainlinkOracle contract")
+    tx = await hre.deployments.deploy("ChainlinkOracleV2", {
+        from: deployer.address,
+        args: [],
+        log: true,
+        deterministicDeployment: false,
+        gasLimit: 450000,
         gasPrice: finalGasPrice,
     })
 }
