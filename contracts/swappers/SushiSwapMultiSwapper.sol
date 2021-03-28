@@ -25,6 +25,12 @@ contract SushiSwapMultiSwapper {
         pairCodeHash = _pairCodeHash;
     }
 
+    function getOutputAmount (IERC20 tokenIn, IERC20 tokenOut, uint256 amountMinOut, address[] calldata path, uint256 shareIn) external view returns (uint256 amountOut){
+        uint256 amountIn = bentoBox.toAmount(tokenIn, shareIn, false);
+        uint256[] memory amounts = UniswapV2Library.getAmountsOut(factory, amountIn, path, pairCodeHash);
+        amountOut = amounts[amounts.length - 1];
+    }
+
     function swap (IERC20 tokenIn, IERC20 tokenOut, uint256 amountMinOut, address[] calldata path, uint256 shareIn) external returns (uint256 amountOut, uint256 shareOut) {
         (uint256 amountIn, ) = bentoBox.withdraw(tokenIn, address(this), address(this), 0, shareIn);
         amountOut = _swapExactTokensForTokens(amountIn, amountMinOut, path, address(bentoBox));
