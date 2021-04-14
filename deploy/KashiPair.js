@@ -40,7 +40,7 @@ module.exports = async function (hre) {
     let finalGasPrice = gasPrice.mul(multiplier)
 
     //const gasLimit = 5000000 + 5500000 + 1300000 + 300000 + 1000000 + 1000000 + 500000 + 5200000 + 450000 + 500000
-    gasLimit = 450000
+    gasLimit = 5700000
     if (chainId == "88" || chainId == "89") {
         finalGasPrice = getBigNumber("10000", 9)
     }
@@ -78,7 +78,8 @@ module.exports = async function (hre) {
     })
 
     const bentobox = (await hre.ethers.getContractFactory("BentoBoxV1")).attach((await deployments.get("BentoBoxV1")).address)
-
+    */
+    const bentobox = (await hre.ethers.getContractFactory("BentoBoxV1")).attach("0xF5BCE5077908a1b7370B9ae04AdC565EBd643966")
     console.log("Deploying KashiPair contract, using BentoBox", bentobox.address)
     tx = await hre.deployments.deploy("KashiPairMediumRiskV1", {
         from: deployer.address,
@@ -88,7 +89,7 @@ module.exports = async function (hre) {
         gasLimit: 5500000,
         gasPrice: finalGasPrice,
     })
-
+    /*
     console.log("Deploying Swapper contract")
     tx = await hre.deployments.deploy("SushiSwapSwapperV1", {
         from: deployer.address,
@@ -170,25 +171,27 @@ module.exports = async function (hre) {
         gasLimit: 5200000,
         gasPrice: finalGasPrice,
     })
-
+*/
     const kashipair = (await hre.ethers.getContractFactory("KashiPairMediumRiskV1")).attach(
         (await deployments.get("KashiPairMediumRiskV1")).address
     )
-    const swapper = (await hre.ethers.getContractFactory("SushiSwapSwapperV1")).attach((await deployments.get("SushiSwapSwapperV1")).address)
-
+    /*  const swapper = (await hre.ethers.getContractFactory("SushiSwapSwapperV1")).attach((await deployments.get("SushiSwapSwapperV1")).address)
+     */
+    const swapper = (await hre.ethers.getContractFactory("SushiSwapSwapperV1")).attach("0x1766733112408b95239aD1951925567CB1203084")
     console.log("Whitelisting Swapper")
     tx = await kashipair.connect(deployer).setSwapper(swapper.address, true, {
         gasLimit: 100000,
         gasPrice: finalGasPrice,
     })
     await tx.wait()
+
     console.log("Update KashiPair Owner")
     tx = await kashipair.connect(deployer).transferOwnership(sushiOwner, true, false, {
         gasLimit: 100000,
         gasPrice: finalGasPrice,
     })
     await tx.wait()
-
+    /*
     console.log("Whitelisting KashiPair")
     tx = await bentobox.whitelistMasterContract(kashipair.address, true, {
         gasLimit: 100000,
@@ -201,7 +204,7 @@ module.exports = async function (hre) {
         gasLimit: 100000,
         gasPrice: finalGasPrice,
     })*/
-
+    /*
     console.log("Deploying ChainlinkOracle contract")
     tx = await hre.deployments.deploy("ChainlinkOracleV2", {
         from: deployer.address,
@@ -210,7 +213,7 @@ module.exports = async function (hre) {
         deterministicDeployment: false,
         gasLimit: 450000,
         gasPrice: finalGasPrice,
-    })
+    })*/
 }
 
 function verify(apikey, address, source, contractname, license, runs) {

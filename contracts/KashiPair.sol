@@ -136,7 +136,6 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
     constructor(IBentoBoxV1 bentoBox_) public {
         bentoBox = bentoBox_;
         masterContract = this;
-        feeTo = msg.sender;
     }
 
     /// @notice Serves as the constructor for clones, as clones can't have a regular constructor
