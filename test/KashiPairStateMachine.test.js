@@ -18,6 +18,7 @@ describe("KashiPair", function () {
             await cmd.deploy("oracle", "OracleMock")
             await cmd.deploy("swapper", "SushiSwapSwapper", this.bentoBox.address, this.factory.address, await this.factory.pairCodeHash())
             await this.kashiPair.setSwapper(this.swapper.address, true)
+            await this.kashiPair.setFeeTo(this.alice.address)
 
             await this.oracle.set(getBigNumber(1, 28))
             const oracleData = await this.oracle.getDataParameter()
@@ -42,6 +43,7 @@ describe("KashiPair", function () {
             // Two different ways to approve the kashiPair
             await setMasterContractApproval(this.bentoBox, this.alice, this.alice, this.alicePrivateKey, this.kashiPair.address, true)
             await setMasterContractApproval(this.bentoBox, this.bob, this.bob, this.bobPrivateKey, this.kashiPair.address, true)
+
         })
     })
 
