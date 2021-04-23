@@ -67,6 +67,7 @@ describe("KashiPair Basic", function () {
             await cmd.deploy("oracle", "OracleMock")
             await cmd.deploy("swapper", "SushiSwapSwapper", this.bentoBox.address, this.factory.address, await this.factory.pairCodeHash())
             await this.kashiPair.setSwapper(this.swapper.address, true)
+            await this.kashiPair.setFeeTo(this.alice.address)
 
             await this.oracle.set(getBigNumber(1, 28))
             const oracleData = await this.oracle.getDataParameter()
@@ -115,11 +116,6 @@ describe("KashiPair Basic", function () {
 
         it("totalSupply is reachable", async function () {
             expect(await this.pairHelper.contract.totalSupply()).to.be.equal(0)
-        })
-
-        it("Assigns feeTo", async function () {
-            expect(await this.kashiPair.feeTo()).to.be.equal(this.alice.address)
-            expect(await this.pairHelper.contract.feeTo()).to.be.equal(ADDRESS_ZERO)
         })
     })
 
