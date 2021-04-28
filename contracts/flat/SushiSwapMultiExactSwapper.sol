@@ -1,4 +1,4 @@
-// File contracts/swappers/SushiSwapMultiSwapper.sol
+// File contracts/swappers/SushiSwapMultiExactSwapper.sol
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
@@ -118,7 +118,7 @@ library UniswapV2Library {
         (uint256 reserve0, uint256 reserve1, ) = IUniswapV2Pair(pairFor(factory, tokenA, tokenB, pairCodeHash)).getReserves();
         (reserveA, reserveB) = tokenA == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
     }
-
+    
     // given an input amount of an asset and pair reserves, returns the maximum output amount of the other asset
     function getAmountOut(
         uint256 amountIn,
@@ -148,6 +148,26 @@ library UniswapV2Library {
             amounts[i + 1] = getAmountOut(amounts[i], reserveIn, reserveOut);
         }
     }
+
+    // given an output amount of an asset and pair reserves, returns a required input amount of the other asset
+    function getAmountIn(uint amountOut, uint reserveIn, uint reserveOut) internal pure returns (uint amountIn) {
+        require(amountOut > 0, 'UniswapV2Library: INSUFFICIENT_OUTPUT_AMOUNT');
+        require(reserveIn > 0 && reserveOut > 0, 'UniswapV2Library: INSUFFICIENT_LIQUIDITY');
+        uint numerator = reserveIn.mul(amountOut).mul(1000);
+        uint denominator = reserveOut.sub(amountOut).mul(997);
+        amountIn = (numerator / denominator).add(1);
+    }
+    
+    // performs chained getAmountIn calculations on any number of pairs
+    function getAmountsIn(address factory, uint amountOut, address[] memory path, bytes32 pairCodeHash) internal view returns (uint[] memory amounts) {
+        require(path.length >= 2, 'UniswapV2Library: INVALID_PATH');
+        amounts = new uint[](path.length);
+        amounts[amounts.length - 1] = amountOut;
+        for (uint i = path.length - 1; i > 0; i--) {
+            (uint reserveIn, uint reserveOut) = getReserves(factory, path[i - 1], path[i], pairCodeHash);
+            amounts[i - 1] = getAmountIn(amounts[i], reserveIn, reserveOut);
+        }
+    }
 }
 
 // File @sushiswap/bentobox-sdk/contracts/IBentoBoxV1.sol@v1.0.2
@@ -167,6 +187,19 @@ interface IBentoBoxV1 {
         uint256 share,
         bool roundUp
     ) external view returns (uint256 amount);
+    
+    function toShare(
+        IERC20 token,
+        uint256 amount,
+        bool roundUp
+    ) external view returns (uint256 share);
+    
+    function transfer(
+        IERC20 token,
+        address from,
+        address to,
+        uint256 share
+    ) external;
 
     function withdraw(
         IERC20 token_,
@@ -180,7 +213,7 @@ interface IBentoBoxV1 {
 // File contracts/swappers/SushiSwapMultiSwapper.sol
 // License-Identifier: GPL-3.0
 
-contract SushiSwapMultiSwapper {
+contract SushiSwapMultiExactSwapper {
     using BoringERC20 for IERC20;
     using BoringMath for uint256;
 
@@ -198,25 +231,25 @@ contract SushiSwapMultiSwapper {
         pairCodeHash = _pairCodeHash;
     }
 
-    function getOutputAmount(
-        IERC20 tokenIn,
-        address[] calldata path,
-        uint256 shareIn
-    ) external view returns (uint256 amountOut) {
-        uint256 amountIn = bentoBox.toAmount(tokenIn, shareIn, false);
-        uint256[] memory amounts = UniswapV2Library.getAmountsOut(factory, amountIn, path, pairCodeHash);
-        amountOut = amounts[amounts.length - 1];
+    function getInputAmount(
+        IERC20 tokenOut,
+        address[] memory path,
+        uint256 shareOut
+    ) public view returns (uint256 amountIn) {
+        uint256 amountOut = bentoBox.toAmount(tokenOut, shareOut, true);
+        uint256[] memory amounts = UniswapV2Library.getAmountsIn(factory, amountOut, path, pairCodeHash);
+        amountIn = amounts[0];
     }
 
     function swap(
         IERC20 tokenIn,
         IERC20 tokenOut,
-        uint256 amountMinOut,
+        uint256 amountMaxIn,
         address path1,
         address path2,
         address to,
-        uint256 baseShare,
-        uint256 shareIn
+        uint256 shareIn,
+        uint256 shareOut
     ) external returns (uint256) {
         address[] memory path;
         if (path2 == address(0)) {
@@ -235,23 +268,24 @@ contract SushiSwapMultiSwapper {
             path[3] = address(tokenOut);
         }
         path[0] = address(tokenIn);
-        (uint256 amountIn, ) = bentoBox.withdraw(tokenIn, address(this), UniswapV2Library.pairFor(factory, path[0], path[1], pairCodeHash), 0, shareIn);
-        uint256 amount = _swapExactTokensForTokens(amountIn, amountMinOut, path, address(bentoBox));
-        (, uint256 share) = bentoBox.deposit(tokenOut, address(bentoBox), to, amount, 0);
-        return baseShare.add(share);
+        uint256 amountIn = getInputAmount(tokenOut, path, shareOut);
+        require(amountIn <= amountMaxIn, "insufficient-amount-in");
+        uint256 difference = shareIn.sub(bentoBox.toShare(tokenIn, amountIn, true));
+        bentoBox.withdraw(tokenIn, address(this), UniswapV2Library.pairFor(factory, path[0], path[1], pairCodeHash), amountIn, 0);
+        _swapExactTokensForTokens(amountIn, path, address(bentoBox));
+        bentoBox.transfer(tokenIn, address(this), to, difference);
+        bentoBox.deposit(tokenOut, address(bentoBox), to, 0, shareOut);
+        return (difference);
     }
 
     // Swaps an exact amount of tokens for another token through the path passed as an argument
     // Returns the amount of the final token
     function _swapExactTokensForTokens(
         uint256 amountIn,
-        uint256 amountOutMin,
         address[] memory path,
         address to
-    ) internal returns (uint256 amountOut) {
+    ) internal {
         uint256[] memory amounts = UniswapV2Library.getAmountsOut(factory, amountIn, path, pairCodeHash);
-        amountOut = amounts[amounts.length - 1];
-        require(amountOut >= amountOutMin, "insufficient-amount-out");
         _swap(amounts, path, to);
     }
 
