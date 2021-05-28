@@ -1,14 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Using the same Copyleft License as in the original Repository
-pragma solidity 0.6.12;
+pragma solidity 0.6.8;
 pragma experimental ABIEncoderV2;
 import "../interfaces/IOracle.sol";
-import "@boringcrypto/boring-solidity/contracts/libraries/BoringMath.sol";
 import "@sushiswap/core/contracts/uniswapv2/interfaces/IUniswapV2Factory.sol";
 import "@sushiswap/core/contracts/uniswapv2/interfaces/IUniswapV2Pair.sol";
 import "../libraries/FixedPoint.sol";
 
 // solhint-disable not-rely-on-time
+
+library BoringMath {
+    function mul(uint256 a, uint256 b) internal pure returns (uint256 c) {
+        require(b == 0 || (c = a * b) / b == a, "BoringMath: Mul Overflow");
+    }
+
+}
 
 // adapted from https://github.com/Uniswap/uniswap-v2-periphery/blob/master/contracts/examples/ExampleSlidingWindowOracle.sol
 
@@ -43,7 +49,6 @@ contract SimpleSLPTWAP1Oracle is IOracle {
     }
 
     // Get the latest exchange rate, if no valid (recent) rate is available, return false
-    /// @inheritdoc IOracle
     function get(bytes calldata data) external override returns (bool, uint256) {
         IUniswapV2Pair pair = abi.decode(data, (IUniswapV2Pair));
         uint32 blockTimestamp = uint32(block.timestamp);
@@ -69,8 +74,7 @@ contract SimpleSLPTWAP1Oracle is IOracle {
     }
 
     // Check the last exchange rate without any state changes
-    /// @inheritdoc IOracle
-    function peek(bytes calldata data) public view override returns (bool, uint256) {
+    function peek(bytes memory data) public view override returns (bool, uint256) {
         IUniswapV2Pair pair = abi.decode(data, (IUniswapV2Pair));
         uint32 blockTimestamp = uint32(block.timestamp);
         if (pairs[pair].blockTimestampLast == 0) {
@@ -89,20 +93,17 @@ contract SimpleSLPTWAP1Oracle is IOracle {
     }
 
     // Check the current spot exchange rate without any state changes
-    /// @inheritdoc IOracle
     function peekSpot(bytes calldata data) external view override returns (uint256 rate) {
         IUniswapV2Pair pair = abi.decode(data, (IUniswapV2Pair));
         (uint256 reserve0, uint256 reserve1, ) = pair.getReserves();
         rate = reserve0.mul(1e18) / reserve1;
     }
 
-    /// @inheritdoc IOracle
-    function name(bytes calldata) public view override returns (string memory) {
+    function name(bytes memory) public view override returns (string memory) {
         return "SushiSwap TWAP";
     }
 
-    /// @inheritdoc IOracle
-    function symbol(bytes calldata) public view override returns (string memory) {
+    function symbol(bytes memory) public view override returns (string memory) {
         return "S";
     }
 }
