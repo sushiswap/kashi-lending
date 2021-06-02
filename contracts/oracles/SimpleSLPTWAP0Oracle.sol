@@ -24,6 +24,8 @@ contract SimpleSLPTWAP0Oracle is IOracle, UniswapOracle {
     using FixedPoint for *;
     using BoringMath for uint256;
     uint256 public constant PERIOD = 5 minutes;
+    uint8 public constant MIN_BLOCKS = 25;
+    uint8 public constant MAX_BLOCKS = 125;
 
     struct PairInfo {
         uint256 priceCumulativeLast;
