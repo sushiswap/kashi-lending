@@ -30,8 +30,8 @@ interface IKashiPair {
         external
         view
         returns (
-            uint64 interestPerBlock,
-            uint64 lastBlockAccrued,
+            uint64 interestPerSecond,
+            uint64 lastAccrued,
             uint128 feesEarnedFraction
         );
 
