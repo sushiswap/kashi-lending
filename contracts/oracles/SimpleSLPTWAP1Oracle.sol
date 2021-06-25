@@ -47,7 +47,7 @@ contract SimpleSLPTWAP1Oracle is IOracle, UniswapOracle {
         return priceCumulative;
     }
 
-    function updateWithProof(bytes memory data, IUniswapV2Pair uniswapV2Pair, ProofData memory proofData) public returns (bool, uint256) {
+    function updateWithProof(bytes memory data, ProofData memory proofData) public returns (bool, uint256) {
 		IUniswapV2Pair pair = abi.decode(data, (IUniswapV2Pair));
         uint256 historicBlockTimestamp;
 		uint256 historicPriceCumulativeLast;
@@ -57,7 +57,7 @@ contract SimpleSLPTWAP1Oracle is IOracle, UniswapOracle {
 			uint112 reserve0;
 			uint112 reserve1;
 			uint256 reserveTimestamp;
-			(historicBlockTimestamp, , historicPriceCumulativeLast, reserve0, reserve1, reserveTimestamp) = verifyBlockAndExtractReserveData(uniswapV2Pair, MIN_BLOCKS, MAX_BLOCKS, token1Slot, proofData);
+			(historicBlockTimestamp, , historicPriceCumulativeLast, reserve0, reserve1, reserveTimestamp) = verifyBlockAndExtractReserveData(pair, MIN_BLOCKS, MAX_BLOCKS, token1Slot, proofData);
 			uint256 secondsBetweenReserveUpdateAndHistoricBlock = historicBlockTimestamp - reserveTimestamp;
 			// bring old record up-to-date, in case there was no cumulative update in provided historic block itself
 			if (secondsBetweenReserveUpdateAndHistoricBlock > 0) {
