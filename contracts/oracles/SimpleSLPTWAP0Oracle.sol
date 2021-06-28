@@ -1,21 +1,31 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Using the same Copyleft License as in the original Repository
-pragma solidity 0.6.12;
+pragma solidity 0.6.8;
 pragma experimental ABIEncoderV2;
 import "../interfaces/IOracle.sol";
-import "@boringcrypto/boring-solidity/contracts/libraries/BoringMath.sol";
 import "@sushiswap/core/contracts/uniswapv2/interfaces/IUniswapV2Factory.sol";
-import "@sushiswap/core/contracts/uniswapv2/interfaces/IUniswapV2Pair.sol";
+import '@keydonix/uniswap-oracle-contracts/source/IUniswapV2Pair.sol';
+import { UniswapOracle } from '@keydonix/uniswap-oracle-contracts/source/UniswapOracle.sol';
 import "../libraries/FixedPoint.sol";
 
 // solhint-disable not-rely-on-time
 
+
+library BoringMath {
+    function mul(uint256 a, uint256 b) internal pure returns (uint256 c) {
+        require(b == 0 || (c = a * b) / b == a, "BoringMath: Mul Overflow");
+    }
+
+}
+
 // adapted from https://github.com/Uniswap/uniswap-v2-periphery/blob/master/contracts/examples/ExampleSlidingWindowOracle.sol
 
-contract SimpleSLPTWAP0Oracle is IOracle {
+contract SimpleSLPTWAP0Oracle is IOracle, UniswapOracle {
     using FixedPoint for *;
     using BoringMath for uint256;
     uint256 public constant PERIOD = 5 minutes;
+    uint8 public constant MIN_BLOCKS = 25;
+    uint8 public constant MAX_BLOCKS = 125;
 
     struct PairInfo {
         uint256 priceCumulativeLast;
@@ -38,12 +48,41 @@ contract SimpleSLPTWAP0Oracle is IOracle {
         return priceCumulative;
     }
 
+     function updateWithProof(bytes memory data, ProofData memory proofData) public returns (bool, uint256) {
+		IUniswapV2Pair pair = abi.decode(data, (IUniswapV2Pair));
+        uint256 historicBlockTimestamp;
+		uint256 historicPriceCumulativeLast;
+		{
+			// Stack-too-deep workaround, manual scope
+			// Side-note: wtf Solidity?
+			uint112 reserve0;
+			uint112 reserve1;
+			uint256 reserveTimestamp;
+			(historicBlockTimestamp, , historicPriceCumulativeLast, reserve0, reserve1, reserveTimestamp) = verifyBlockAndExtractReserveData(pair, MIN_BLOCKS, MAX_BLOCKS, token1Slot, proofData);
+			uint256 secondsBetweenReserveUpdateAndHistoricBlock = historicBlockTimestamp - reserveTimestamp;
+			// bring old record up-to-date, in case there was no cumulative update in provided historic block itself
+			if (secondsBetweenReserveUpdateAndHistoricBlock > 0) {
+				historicPriceCumulativeLast += secondsBetweenReserveUpdateAndHistoricBlock * uint256(FixedPoint.fraction(reserve1, reserve0)._x);
+			}
+		}
+        uint32 blockTimestamp = uint32(block.timestamp);
+        uint32 timeElapsed = blockTimestamp - uint32(historicBlockTimestamp); // overflow is desired
+        uint256 priceCumulative = _get(pair, blockTimestamp);
+        pairs[pair].priceAverage = FixedPoint
+            .uq112x112(uint224((priceCumulative - historicPriceCumulativeLast) / timeElapsed))
+            .mul(10**18)
+            .decode144();
+        pairs[pair].blockTimestampLast = blockTimestamp;
+        pairs[pair].priceCumulativeLast = priceCumulative;
+
+        return (true, pairs[pair].priceAverage);
+    }
+
     function getDataParameter(IUniswapV2Pair pair) public pure returns (bytes memory) {
         return abi.encode(pair);
     }
 
     // Get the latest exchange rate, if no valid (recent) rate is available, return false
-    /// @inheritdoc IOracle
     function get(bytes calldata data) external override returns (bool, uint256) {
         IUniswapV2Pair pair = abi.decode(data, (IUniswapV2Pair));
         uint32 blockTimestamp = uint32(block.timestamp);
@@ -69,8 +108,7 @@ contract SimpleSLPTWAP0Oracle is IOracle {
     }
 
     // Check the last exchange rate without any state changes
-    /// @inheritdoc IOracle
-    function peek(bytes calldata data) public view override returns (bool, uint256) {
+    function peek(bytes memory data) public view override returns (bool, uint256) {
         IUniswapV2Pair pair = abi.decode(data, (IUniswapV2Pair));
         uint32 blockTimestamp = uint32(block.timestamp);
         if (pairs[pair].blockTimestampLast == 0) {
@@ -89,20 +127,17 @@ contract SimpleSLPTWAP0Oracle is IOracle {
     }
 
     // Check the current spot exchange rate without any state changes
-    /// @inheritdoc IOracle
     function peekSpot(bytes calldata data) external view override returns (uint256 rate) {
         IUniswapV2Pair pair = abi.decode(data, (IUniswapV2Pair));
         (uint256 reserve0, uint256 reserve1, ) = pair.getReserves();
         rate = reserve1.mul(1e18) / reserve0;
     }
 
-    /// @inheritdoc IOracle
-    function name(bytes calldata) public view override returns (string memory) {
+    function name(bytes memory) public view override returns (string memory) {
         return "SushiSwap TWAP";
     }
 
-    /// @inheritdoc IOracle
-    function symbol(bytes calldata) public view override returns (string memory) {
+    function symbol(bytes memory) public view override returns (string memory) {
         return "S";
     }
 }

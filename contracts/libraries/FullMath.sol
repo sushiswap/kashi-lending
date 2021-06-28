@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: CC-BY-4.0
-pragma solidity 0.6.12;
+pragma solidity >=0.4.0;
 
 // solhint-disable
 
