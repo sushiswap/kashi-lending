@@ -1,5 +1,10 @@
 module.exports = {
     hardhat: {
+        etherscan: {
+            // Your API key for Etherscan
+            // Obtain one at https://etherscan.io/
+            apiKey: process.env.ETHERSCAN_API_KEY
+        },
         solidity: {
             compilers: [
                 {
@@ -141,4 +146,5 @@ module.exports = {
     prettier: {
         // Add or change prettier settings here
     },
+    
 }

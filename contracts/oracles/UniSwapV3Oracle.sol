@@ -20,32 +20,32 @@ contract UniSwapV3Oracle is IOracle {
         return OracleLibrary.getQuoteAtTick(tick, BASE_AMOUNT, baseToken, quoteToken);
     }
 
-    function getDataParameter(IUniswapV3Pool pair, address baseToken, address quoteToken) public pure returns (bytes memory) {
-        return abi.encode(pair, baseToken, quoteToken);
+    function getDataParameter(IUniswapV3Pool pool, address baseToken, address quoteToken) public pure returns (bytes memory) {
+        return abi.encode(pool, baseToken, quoteToken);
     }
 
     // Get the latest exchange rate, if no valid (recent) rate is available, return false
     /// @inheritdoc IOracle
     function get(bytes calldata data) external override returns (bool, uint256) {
-        (IUniswapV3Pool pair, address baseToken, address quoteToken) = abi.decode(data, (IUniswapV3Pool, address, address));
+        (IUniswapV3Pool pool, address baseToken, address quoteToken) = abi.decode(data, (IUniswapV3Pool, address, address));
 
-        return (true, _get(pair, baseToken, quoteToken));
+        return (true, _get(pool, baseToken, quoteToken));
     }
 
     // Check the last exchange rate without any state changes
     /// @inheritdoc IOracle
     function peek(bytes calldata data) public view override returns (bool, uint256) {
-        (IUniswapV3Pool pair, address baseToken, address quoteToken) = abi.decode(data, (IUniswapV3Pool, address, address));
+        (IUniswapV3Pool pool, address baseToken, address quoteToken) = abi.decode(data, (IUniswapV3Pool, address, address));
 
-        return (true, _get(pair, baseToken, quoteToken));
+        return (true, _get(pool, baseToken, quoteToken));
     }
 
     // Check the current spot exchange rate without any state changes
     /// @inheritdoc IOracle
     function peekSpot(bytes calldata data) external view override returns (uint256 rate) {
-        (IUniswapV3Pool pair, address baseToken, address quoteToken) = abi.decode(data, (IUniswapV3Pool, address, address));
+        (IUniswapV3Pool pool, address baseToken, address quoteToken) = abi.decode(data, (IUniswapV3Pool, address, address));
 
-        rate =  _get(pair, baseToken, quoteToken);
+        rate =  _get(pool, baseToken, quoteToken);
     }
 
     /// @inheritdoc IOracle
@@ -56,6 +56,16 @@ contract UniSwapV3Oracle is IOracle {
     /// @inheritdoc IOracle
     function symbol(bytes calldata) public pure override returns (string memory) {
         return "UniSwapV3 TWAP";
+    }
+
+    function checkAge(bytes calldata data) public view returns(bool) {
+        (address pool, address baseToken, address quoteToken) = abi.decode(data, (address, address, address));
+        return OracleLibrary.getOldestObservationSecondsAgo(pool) > PERIOD;
+    }
+
+    function increaseCardinality(bytes calldata data, uint16 cardinalityNext) public {
+        (IUniswapV3Pool pool, address baseToken, address quoteToken) = abi.decode(data, (IUniswapV3Pool, address, address));
+        pool.increaseObservationCardinalityNext(cardinalityNext);
     }
 
 
