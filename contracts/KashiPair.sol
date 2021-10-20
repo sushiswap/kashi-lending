@@ -504,10 +504,10 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
             callData = abi.encodePacked(callData, value1, value2);
         }
 
-        require(callee != address(bentoBox) && callee != address(this), "KashiPair: can't call");
+        require(callee != address(bentoBox) && callee != address(this));
 
         (bool success, bytes memory returnData) = callee.call{value: value}(callData);
-        require(success, "KashiPair: call failed");
+        require(success);
         return (returnData, returnValues);
     }
 
@@ -607,7 +607,9 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
         address to,
         ISwapper swapper,
         bool open
-    ) public {
+    ) public
+      virtual
+    {
         // Oracle can fail but we still need to allow liquidations
         (, uint256 _exchangeRate) = updateExchangeRate();
         accrue();
