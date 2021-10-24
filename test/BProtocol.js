@@ -12,6 +12,7 @@ const {
     createFixture,
     ADDRESS_ZERO,
     BKashiPair,
+    BAMM,
     advanceTimeAndBlock,
 } = require("@sushiswap/hardhat-framework")
 const { defaultAbiCoder } = require("ethers/lib/utils")
@@ -52,7 +53,8 @@ describe("KashiPair Basic", function () {
             await cmd.deploy("bentoBox", "BentoBoxMock", this.weth9.address)
 
             await cmd.addToken("a", "Token A", "A", 18, this.ReturnFalseERC20Mock)
-            await cmd.addToken("b", "Token B", "B", 8, this.RevertingERC20Mock)
+            //await cmd.addToken("b", "Token B", "B", 8, this.RevertingERC20Mock)
+            await cmd.addToken("b", "Token B", "B", 18, this.RevertingERC20Mock)            
             await cmd.addPair("sushiSwapPair", this.a, this.b, 50000, 50000)
 
             await cmd.deploy("strategy", "SimpleStrategyMock", this.bentoBox.address, this.a.address)
@@ -95,6 +97,8 @@ describe("KashiPair Basic", function () {
                 .withArgs(this.b.address, this.fred.address, this.fred.address, getBigNumber(200, 8), getBigNumber(200, 8))
 
             await this.bentoBox.connect(this.fred).addProfit(this.b.address, getBigNumber(200, 8))
+
+            await cmd.deploy("BAMM", "BAMM", this.BkashiPair.address, this.oracle.address, this.a.address, this.b.address, this.alice.address, 400)            
         })
     })
 
@@ -668,6 +672,33 @@ describe("KashiPair Basic", function () {
             )
         })
     })
+
+   describe.only("bamm", function () {
+        it("should deposit b at the bamm", async function () {
+            const bamm = this.BAMM
+            const depositAmonut = getBigNumber(2, 18);
+            const withdrawAmountShare = getBigNumber(5, 17);
+            const withdrawAmountMim = getBigNumber(1, 18);
+
+            const bobBalBefore = await this.a.balanceOf(this.bob.address)
+            
+            // deposit
+            await this.a.connect(this.bob).approve(bamm.address, depositAmonut);
+            await bamm.connect(this.bob).deposit(depositAmonut);
+
+            expect(await bamm.balanceOf(this.bob.address)).to.be.equal(getBigNumber(1, 18))
+            expect((await this.a.balanceOf(this.bob.address)).add(depositAmonut)).to.be.equal(bobBalBefore)            
+            expect((await this.a.balanceOf(bamm.address))).to.be.equal(depositAmonut)
+
+            // withdraw
+            await bamm.connect(this.bob).withdraw(withdrawAmountShare)
+
+            expect(await bamm.balanceOf(this.bob.address)).to.be.equal(getBigNumber(1, 18).sub(withdrawAmountShare))
+            expect((await this.a.balanceOf(this.bob.address)).add(depositAmonut.sub(withdrawAmountMim))).to.be.equal(bobBalBefore)            
+            expect((await this.a.balanceOf(bamm.address))).to.be.equal(depositAmonut.sub(withdrawAmountMim))            
+        })
+    })
+
 
     describe.only("Liquidate", function () {
         it("should not allow open liquidate yet", async function () {

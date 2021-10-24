@@ -5,13 +5,16 @@ pragma solidity >=0.6.12;
 import "./PriceFormula.sol";
 import "@boringcrypto/boring-solidity/contracts/BoringOwnable.sol";
 import "@boringcrypto/boring-solidity/contracts/ERC20.sol";
+import "@boringcrypto/boring-solidity/contracts/libraries/BoringERC20.sol";
 import "./../interfaces/IOracle.sol";
 import "./../interfaces/IKashiPair.sol"; // TODO the interface for abracadabra is a bit different
 
 contract BAMM is PriceFormula, BoringOwnable, ERC20 {
+    using BoringERC20 for IERC20;
+
     IOracle public immutable oracle;
-    ERC20 public immutable mim;
-    ERC20 public immutable collateral;
+    IERC20 public immutable mim;
+    IERC20 public immutable collateral;
     IKashiPair public immutable lendingPair;
     bytes public oracleData;
 
@@ -47,8 +50,8 @@ contract BAMM is PriceFormula, BoringOwnable, ERC20 {
     {
         lendingPair = IKashiPair(lendingPair_);
         oracle = IOracle(oracle_);
-        mim = ERC20(mim_);
-        collateral = ERC20(collateral_);
+        mim = IERC20(mim_);
+        collateral = IERC20(collateral_);
         oracleData = IKashiPair(lendingPair_).oracleData();
 
         feePool = feePool_;
@@ -108,7 +111,7 @@ contract BAMM is PriceFormula, BoringOwnable, ERC20 {
         balanceOf[msg.sender] = balanceOf[msg.sender].add(newShare);
 
         // deposit the wad
-        require(mim.transferFrom(msg.sender, address(this), wad), "deposit: transferFrom failed");
+        mim.safeTransferFrom(msg.sender, address(this), wad);
 
         emit Transfer(address(0), msg.sender, newShare);
         emit UserDeposit(msg.sender, wad, newShare);        
@@ -123,10 +126,10 @@ contract BAMM is PriceFormula, BoringOwnable, ERC20 {
         uint usdAmount = usdValue.mul(numShares) / totalSupply;
         uint gemAmount = gemValue.mul(numShares) / totalSupply;
 
-        require(mim.transfer(msg.sender, usdAmount), "withdraw: transfer failed");
+        mim.safeTransfer(msg.sender, usdAmount);
 
         if(gemAmount > 0) {
-            require(collateral.transfer(msg.sender, gemAmount), "withdraw: transfer failed");            
+            collateral.safeTransfer(msg.sender, gemAmount);
         }
 
         balanceOf[msg.sender] = balanceOf[msg.sender].sub(numShares);
@@ -177,12 +180,12 @@ contract BAMM is PriceFormula, BoringOwnable, ERC20 {
 
         require(gemAmount >= minGemReturn, "swap: low return");
 
-        require(mim.transferFrom(msg.sender, address(this), wad), "swap/transferFrom-failed");
+        mim.safeTransferFrom(msg.sender, address(this), wad);
 
-        uint feeWad = (addBps(wad, int(fee))).sub(wad);
-        if(feeWad > 0) require(mim.transfer(feePool, feeWad), "swap/transfer-failed");
+        uint feeWad = addBps(wad, int(fee)).sub(wad);
+        if(feeWad > 0) mim.safeTransfer(feePool, feeWad);
 
-        require(collateral.transfer(dest, gemAmount), "swap: transfer failed");
+        collateral.safeTransfer(dest, gemAmount);
 
         emit RebalanceSwap(msg.sender, wad, gemAmount, now);
 
@@ -205,7 +208,7 @@ contract BAMM is PriceFormula, BoringOwnable, ERC20 {
         uint callerReward = mimBalanceBefore.sub(mimBalanceAfter).mul(callerFee) / 10000;
 
         if(mimBalanceAfter >= callerReward) {
-            require(mim.transfer(msg.sender, callerReward), "liquidate: transfer failed");
+            mim.safeTransfer(msg.sender, callerReward);
             mimBalanceAfter = mimBalanceAfter.sub(callerReward);
         }
     }
@@ -219,7 +222,7 @@ contract BAMM is PriceFormula, BoringOwnable, ERC20 {
         bool open        
     ) public {
         // take the mim
-        require(mim.transferFrom(msg.sender, address(this), extraMim), "liquidateLikeBoomer: transferFrom failed");
+        mim.safeTransferFrom(msg.sender, address(this), extraMim);
 
         uint collatBalanceBefore = collateral.balanceOf(address(this));
         
@@ -230,18 +233,18 @@ contract BAMM is PriceFormula, BoringOwnable, ERC20 {
 
         if(extraMim <= mimBalanceAfter) {
             // boomer liquidation was not needed. just return the money
-            require(mim.transfer(msg.sender, extraMim), "liquidateLikeBoomer: transfer failed");
+            mim.safeTransfer(msg.sender, extraMim);
             return;
         }
 
         // send mim leftover to liquidator
         if(mimBalanceBefore.sub(mimBalanceAfter) >= extraMim) {
             uint returnAmount = mimBalanceBefore.sub(mimBalanceAfter).sub(extraMim);
-            require(mim.transfer(msg.sender, returnAmount), "liquidateLikeBoomer: transfer failed");
+            mim.safeTransfer(msg.sender, returnAmount);
         }
 
         // send collateral to liquidator
-        require(collateral.transfer(msg.sender, collatBalanceAfter.sub(collatBalanceBefore)), "liquidateLikeBoomer: transfer failed");
+        collateral.safeTransfer(msg.sender, collatBalanceAfter.sub(collatBalanceBefore));
     }
 
 }
