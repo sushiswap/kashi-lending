@@ -79,15 +79,15 @@ contract BAMM is PriceFormula, BoringOwnable, ERC20 {
     function fetchPrice() public returns(uint) {
         (bool succ, uint rate) = oracle.get(oracleData);
 
-        if(succ) return 0;
-        else return rate;
+        if(succ) return rate;
+        else return 0;
     }
 
     function peekPrice() public view returns(uint) {
         (bool succ, uint rate) = oracle.peek(oracleData);
 
-        if(succ) return 0;
-        else return rate;
+        if(succ) return rate;
+        else return 0;
     }    
 
     function deposit(uint wad) external {

@@ -674,7 +674,7 @@ describe("KashiPair Basic", function () {
     })
 
    describe.only("bamm", function () {
-        it("should deposit b at the bamm", async function () {
+        it("deposit and withdraw only with mim", async function () {
             const bamm = this.BAMM
             const depositAmonut = getBigNumber(2, 18);
             const withdrawAmountShare = getBigNumber(5, 17);
@@ -695,8 +695,55 @@ describe("KashiPair Basic", function () {
 
             expect(await bamm.balanceOf(this.bob.address)).to.be.equal(getBigNumber(1, 18).sub(withdrawAmountShare))
             expect((await this.a.balanceOf(this.bob.address)).add(depositAmonut.sub(withdrawAmountMim))).to.be.equal(bobBalBefore)            
-            expect((await this.a.balanceOf(bamm.address))).to.be.equal(depositAmonut.sub(withdrawAmountMim))            
+            expect((await this.a.balanceOf(bamm.address))).to.be.equal(depositAmonut.sub(withdrawAmountMim))
+
+            // deposit with alice
+            await this.a.connect(this.alice).approve(bamm.address, depositAmonut)
+            await bamm.connect(this.alice).deposit(depositAmonut)
+
+            expect(await bamm.balanceOf(this.alice.address)).to.be.equal(getBigNumber(1, 18)) // 1 shares            
         })
+
+        it("deposit and withdraw also with collateral", async function () {
+            const bamm = this.BAMM
+            const depositAmonut = getBigNumber(11, 17);
+            
+            // deposit
+            await this.a.connect(this.bob).approve(bamm.address, depositAmonut);
+            await bamm.connect(this.bob).deposit(depositAmonut);
+
+            // transfer collateral
+            await this.b.connect(this.bob).transfer(bamm.address, getBigNumber(1, 18))
+            await this.oracle.connect(this.alice).set(getBigNumber(11, 17).toString())
+
+            // now there are 1.1 of mim, and 1.1 worth of collateral
+
+            // deposit 2.2 of mim
+            await this.a.connect(this.alice).approve(bamm.address, getBigNumber(22, 17))
+            await bamm.connect(this.alice).deposit(getBigNumber(22, 17))
+
+            expect((await bamm.balanceOf(this.alice.address))).to.be.equal(getBigNumber(1, 18))
+
+            // now there are 3.3 of mim and 1.1 worth of collateral
+
+            // withdraw half the deposit. get 3.3/4 = 0.825 mim and 1.0/4 = 0.25 of collateral
+            const aliceMimBalBefore = await this.a.balanceOf(this.alice.address)
+            const aliceColBalBefore = await this.b.balanceOf(this.alice.address)
+
+            await bamm.connect(this.alice).withdraw(getBigNumber(5, 17))
+
+            const aliceMimBalAfter = await this.a.balanceOf(this.alice.address)
+            const aliceColBalAfter = await this.b.balanceOf(this.alice.address)
+
+
+            const expectedMimDelta = getBigNumber(825, 15)
+            const expectedColDelta = getBigNumber(25, 16)
+
+            expect(aliceColBalBefore.add(expectedColDelta)).to.be.equal(aliceColBalAfter)
+            expect(aliceMimBalBefore.add(expectedMimDelta)).to.be.equal(aliceMimBalAfter)
+        })
+
+
     })
 
 
