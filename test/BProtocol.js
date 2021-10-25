@@ -17,6 +17,8 @@ const {
 } = require("@sushiswap/hardhat-framework")
 const { defaultAbiCoder } = require("ethers/lib/utils")
 
+const feePool = "0xFeE0000ee89f342a85543C489Ff400dA521156F2"
+
 let cmd, fixture
 
 async function debugInfo(thisObject) {
@@ -98,11 +100,11 @@ describe("KashiPair Basic", function () {
 
             await this.bentoBox.connect(this.fred).addProfit(this.b.address, getBigNumber(200, 8))
 
-
+            
 
             const master = await this.bentoBox.masterContractOf(this.pairHelper.contract.address)
             await this.bentoBox.whitelistMasterContract(master, true)            
-            await cmd.deploy("BAMM", "BAMM", this.pairHelper.contract.address, this.oracle.address, this.b.address, this.a.address, this.alice.address, 400)            
+            await cmd.deploy("BAMM", "BAMM", this.pairHelper.contract.address, this.oracle.address, this.b.address, this.a.address, feePool, 400)            
         })
     })
 
@@ -758,6 +760,91 @@ describe("KashiPair Basic", function () {
             expect(aliceColBalBefore.add(expectedColDelta.sub(1))).to.be.equal(aliceColBalAfter)
             expect(aliceMimBalBefore.add(expectedMimDelta)).to.be.equal(aliceMimBalAfter)
         })
+/*
+    it('test getSwapEthAmount', async () => {
+      // --- SETUP ---
+
+
+      // 4k liquidations
+      assert.equal(toBN(dec(6000, 18)).toString(), (await stabilityPool.getCompoundedLUSDDeposit(bamm.address)).toString())
+      const ethGains = web3.utils.toBN("39799999999999999975")
+
+      const lusdQty = dec(105, 18)
+      const expectedReturn = await bamm.getReturn(lusdQty, dec(6000, 18), toBN(dec(6000, 18)).add(ethGains.mul(toBN(2 * 105))), 200)
+
+      // without fee
+      await bamm.setParams(200, 0, {from: bammOwner})
+      const priceWithoutFee = await bamm.getSwapEthAmount(lusdQty)
+      assert.equal(priceWithoutFee.ethAmount.toString(), expectedReturn.mul(toBN(100)).div(toBN(100 * 105)).toString())
+
+      // with fee
+      await bamm.setParams(200, 100, {from: bammOwner})
+      const priceWithFee = await bamm.getSwapEthAmount(lusdQty)
+      assert.equal(priceWithFee.ethAmount.toString(), expectedReturn.mul(toBN(99)).div(toBN(100 * 105)).toString())      
+    }) */
+
+        it("getSwapGemAmount", async function () {
+            const bamm = this.BAMM
+            const mimAmonut = getBigNumber(600, 18)
+            const colAmount = "3979999999999999997" // almost 4e17
+            const price = getBigNumber(105, 18)
+            const wad = getBigNumber(105, 17)
+
+            // deposit
+            await this.b.connect(this.bob).approve(bamm.address, mimAmonut);
+            await bamm.connect(this.bob).deposit(mimAmonut, false);
+
+            // transfer collateral
+            await this.a.connect(this.bob).approve(this.bentoBox.address, colAmount)
+            await this.bentoBox.connect(this.bob).deposit(this.a.address, this.bob.address, bamm.address, colAmount, 0)
+            //await this.a.connect(this.bob).transfer(bamm.address, getBigNumber(1, 18))
+            await this.oracle.connect(this.alice).set(price.toString())
+            await bamm.fetchPrice()
+
+            const expectedReturn = await bamm.getReturn(wad, mimAmonut, mimAmonut.add(price.mul(colAmount).mul(2).div(getBigNumber(1, 18))), 200)
+
+            // without fee
+            await bamm.setParams(200, 0, 0)
+            const priceWithoutFee = await bamm.getSwapGemAmount(wad)
+            expect(priceWithoutFee).to.be.equal(expectedReturn.mul(getBigNumber(1,18)).div(price))
+
+            // with fee - price should be the same
+            await bamm.setParams(200, 100, 0)
+            const priceWithFee = await bamm.getSwapGemAmount(wad)
+            expect(priceWithFee).to.be.equal(expectedReturn.mul(getBigNumber(1,18)).div(price))            
+        })
+
+        it("swap", async function () {
+            const bamm = this.BAMM
+            const mimAmonut = getBigNumber(600, 18)
+            const colAmount = "3979999999999999997" // almost 4e17
+            const price = getBigNumber(105, 18)
+            const wad = getBigNumber(105, 17)
+
+            // deposit
+            await this.b.connect(this.bob).approve(bamm.address, mimAmonut);
+            await bamm.connect(this.bob).deposit(mimAmonut, false);
+
+            // transfer collateral
+            await this.a.connect(this.bob).approve(this.bentoBox.address, colAmount)
+            await this.bentoBox.connect(this.bob).deposit(this.a.address, this.bob.address, bamm.address, colAmount, 0)
+            //await this.a.connect(this.bob).transfer(bamm.address, getBigNumber(1, 18))
+            await this.oracle.connect(this.alice).set(price.toString())
+            await bamm.fetchPrice()
+
+            // with fee
+            await bamm.setParams(200, 100, 0)
+            const expectedCol = await bamm.getSwapGemAmount(wad)
+
+            // do the swap
+            await this.b.connect(this.bob).approve(bamm.address, wad);
+            const dest = "0x0000000000000000000000000000000000000007"
+
+            await bamm.connect(this.bob).swap(wad, 1, dest, false)
+            expect(await this.a.balanceOf(dest)).to.be.equal(expectedCol)
+
+            expect(await getBentoBoxBalance(this, this.b.address, feePool)).to.be.equal(wad.div(100))
+        })
 
         it("liquidate via bprotocol", async function () {
             const bamm = this.BAMM
@@ -820,7 +907,7 @@ describe("KashiPair Basic", function () {
         // liquidate normal test - TODO
     })
 
-    describe("Liquidate", function () {
+    describe.only("Liquidate", function () {
         it("should not allow open liquidate yet", async function () {
             await this.pairHelper.run((cmd) => [
                 cmd.as(this.bob).approveAsset(getBigNumber(310, 8)),
