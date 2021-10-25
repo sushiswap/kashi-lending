@@ -215,7 +215,7 @@ contract BAMM is PriceFormula, BoringOwnable, ERC20 {
         }
     }
 
-    function liquidateLikeBoomer(
+    function liquidateLikeTiran(
         uint extraMim,
         address[] calldata users,
         uint256[] calldata maxBorrowParts,

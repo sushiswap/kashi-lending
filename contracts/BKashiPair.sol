@@ -14,7 +14,7 @@ contract BKashiPair is KashiPair {
     constructor(IBentoBoxV1 bentoBox_) public KashiPair(bentoBox_) {}
 
     function setBProtocol(address bprotocol_) public onlyOwner {
-        require(bprotocol == address(0x0)/*, "BKashiPair: bprotocol alread initialized"*/);
+        require(bprotocol == address(0x0), "BKashiPair: bprotocol alread initialized");
         bprotocol = bprotocol_;
         emit BProtocol(bprotocol_);
     }
