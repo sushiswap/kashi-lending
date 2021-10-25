@@ -682,6 +682,11 @@ describe("KashiPair Basic", function () {
             const share = await thisObject.bentoBox.balanceOf(token, address)
             return await thisObject.bentoBox.toAmount(token, share, false) 
         }
+
+        async function toAmount(thisObject, token, share) {
+            return await thisObject.bentoBox.toAmount(token, share, false)            
+        }
+
         it("deposit and withdraw only with mim", async function () {
             const bamm = this.BAMM
             const depositAmonut = getBigNumber(2, 18);
@@ -761,6 +766,8 @@ describe("KashiPair Basic", function () {
 
             //await this.pairHelper.contract.connect(this.alice).setBProtocolMock(bamm.address)
 
+            const price = getBigNumber(11, 27);
+
             await this.pairHelper.run((cmd) => [
                 cmd.as(this.bob).approveAsset(getBigNumber(310, 8)),
                 cmd.as(this.bob).depositAsset(getBigNumber(290, 8)),
@@ -768,39 +775,49 @@ describe("KashiPair Basic", function () {
                 cmd.depositCollateral(getBigNumber(100)),
                 cmd.borrow(sansBorrowFee(getBigNumber(75, 8))),
                 cmd.accrue(),
-                cmd.do(this.oracle.set, "11000000000000000000000000000"),
+                cmd.do(this.oracle.set, price.toString()),
                 cmd.updateExchangeRate(),
                 cmd.do(this.bentoBox.connect(this.bob).deposit, this.b.address, this.bob.address, this.bob.address, getBigNumber(20, 8), 0),
                 cmd.do(this.pairHelper.contract.connect(this.bob).removeAsset, this.bob.address, getBigNumber(50, 8)),
             ])
 
-            //console.log("Try to liquiate")
-            //console.log(await this.bentoBox.balanceOf(this.b.address, this.bob.address), await this.bentoBox.balanceOf(this.a.address, this.bob.address))            
-            /*
-            await this.pairHelper.contract
-                .connect(this.bob)
-                .liquidate([this.alice.address], [getBigNumber(20, 8)], this.bob.address, "0x0000000000000000000000000000000000000000", true)
-*/
-
-            //console.log("deposit started")
+            await bamm.setParams(20, 0, 100)
 
             // deposit
             const depositAmonut = await this.b.balanceOf(this.bob.address);
 
             await this.b.connect(this.bob).approve(bamm.address, depositAmonut);
             await bamm.connect(this.bob).deposit(depositAmonut, false);
-            /*
-            console.log(depositAmonut.toString())
 
-            console.log("deposit ended")
-            console.log(await this.bentoBox.balanceOf(this.b.address, bamm.address), await this.bentoBox.balanceOf(this.b.address, this.bob.address))
+            const liquidationShare = await this.pairHelper.contract.userBorrowPart(this.alice.address) //getBigNumber(20, 18);
+            const liquidationAmount = await toAmount(this, this.b.address, liquidationShare)
 
-            console.log(await this.pairHelper.contract.userBorrowPart(this.alice.address))*/
-            await bamm.connect(this.bob).liquidate([this.alice.address], [getBigNumber(20, 8)], this.bob.address, "0x0000000000000000000000000000000000000000", true)
+            const bammMimBalBefore = await getBentoBoxBalance(this, this.b.address, bamm.address)
+            const bammColBalBefore = await getBentoBoxBalance(this, this.a.address, bamm.address)
+            const pairMimBalBefore = await getBentoBoxBalance(this, this.b.address, this.pairHelper.contract.address)
+            const nullAddr = "0x0000000000000000000000000000000000000000"
+            const rewardAddress = "0x0000000000000000000000000000000000000007"
+            await bamm.connect(this.bob).liquidate([this.alice.address], [liquidationShare], rewardAddress, nullAddr)
+            const bammMimBalAfter = await getBentoBoxBalance(this, this.b.address, bamm.address)
+            const bammColBalAfter = await getBentoBoxBalance(this, this.a.address, bamm.address)            
+            const pairMimBalAfter = await getBentoBoxBalance(this, this.b.address, this.pairHelper.contract.address)
+
+            const deltaMimBamm = bammMimBalBefore.sub(bammMimBalAfter)
+            const deltaMimPair = pairMimBalAfter.sub(pairMimBalBefore)
+
+            const rewardBalance = await getBentoBoxBalance(this, this.b.address, rewardAddress)
+
+            expect(deltaMimBamm.sub(rewardBalance)).to.be.equal(deltaMimPair)
+            expect(deltaMimPair.div(100)).to.be.equal(rewardBalance)
+
+            const deltaCol = bammColBalAfter.sub(bammColBalBefore)
+            const deltaMimWithPermium = deltaMimPair.mul(112).div(100)
+
+            const roundingFactor = getBigNumber(1, 11);
+            expect(deltaMimWithPermium.mul(price).div(getBigNumber(1,18)).div(roundingFactor)).to.be.equal(deltaCol.div(roundingFactor))
         })
 
         // liquidate normal test - TODO
-
     })
 
     describe("Liquidate", function () {

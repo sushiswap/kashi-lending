@@ -199,13 +199,12 @@ contract BAMM is PriceFormula, BoringOwnable, ERC20 {
         address[] calldata users,
         uint256[] calldata maxBorrowParts,
         address to,
-        ISwapper swapper,
-        bool open
+        ISwapper swapper
     ) public
         returns(uint mimBalanceBefore, uint collateralBalanceBefore, uint mimBalanceAfter, uint collateralBalanceAfter)
     {
         (mimBalanceBefore, collateralBalanceBefore) = getBalances();
-        lendingPair.liquidate(users, maxBorrowParts, to, swapper, open);
+        lendingPair.liquidate(users, maxBorrowParts, address(this), swapper, true);
         (mimBalanceAfter, collateralBalanceAfter) = getBalances();
 
         uint callerReward = mimBalanceBefore.sub(mimBalanceAfter).mul(callerFee) / 10000;
@@ -222,7 +221,6 @@ contract BAMM is PriceFormula, BoringOwnable, ERC20 {
         uint256[] calldata maxBorrowParts,
         address to,
         ISwapper swapper,
-        bool open,
         bool viaBentobox  
     ) public {
         // take the mim
@@ -230,7 +228,7 @@ contract BAMM is PriceFormula, BoringOwnable, ERC20 {
 
         // do the liquidation
         (uint mimBalanceBefore, uint collatBalanceBefore, uint mimBalanceAfter, uint collatBalanceAfter) =
-            liquidate(users, maxBorrowParts, to, swapper, open);
+            liquidate(users, maxBorrowParts, to, swapper);
 
         if(extraMim <= mimBalanceAfter) {
             sendToken(mim, msg.sender, extraMim, viaBentobox);
