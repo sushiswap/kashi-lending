@@ -719,7 +719,7 @@ describe("KashiPair Basic", function () {
             expect(await bamm.balanceOf(this.alice.address)).to.be.equal(getBigNumber(1, 18)) // 1 shares            
         })
 
-        it.only("deposit and withdraw only with mim via bentoBox", async function () {
+        it("deposit and withdraw only with mim via bentoBox", async function () {
             const depositAmonut = getBigNumber(2, 18);
             // bob bento deposit
             await this.b.connect(this.bob).approve(this.bentoBox.address, depositAmonut);
