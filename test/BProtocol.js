@@ -945,7 +945,7 @@ describe("KashiPair Basic", function () {
             expect(await getBentoBoxBalance(this, this.b.address, feePool)).to.be.equal(wad.div(100))
         })
 
-        it.only("swap via bentoBox", async function () {
+        it("swap via bentoBox", async function () {
             const bamm = this.BAMM
             const mimAmonut = getBigNumber(600, 18)
             const colAmount = "3979999999999999997" // almost 4e17
