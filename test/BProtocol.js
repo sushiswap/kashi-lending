@@ -738,8 +738,8 @@ describe("KashiPair Basic", function () {
             
             const bobBentoBalBefore = await getBentoBoxBalance(this, this.b.address, this.bob.address)
             
-            console.log("Alice Asset in Bento", (await getBentoBoxBalance(this, this.b.address, this.alice.address)).toString())
-            console.log("Bob Asset in Bento", (bobBentoBalBefore).toString())
+            // console.log("Alice Asset in Bento", (await getBentoBoxBalance(this, this.b.address, this.alice.address)).toString())
+            // console.log("Bob Asset in Bento", (bobBentoBalBefore).toString())
             const bamm = this.BAMM
             const withdrawAmountShare = getBigNumber(5, 17);
             const withdrawAmountMim = getBigNumber(1, 18);
