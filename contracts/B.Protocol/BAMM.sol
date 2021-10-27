@@ -61,6 +61,7 @@ contract BAMM is PriceFormula, BoringOwnable, ERC20 {
 
         IBentoBoxV1 box = IBentoBoxV1(IKashiPair(lendingPair_).bentoBox());
         box.setMasterContractApproval(address(this), box.masterContractOf(lendingPair_), true, 0, 0, 0);
+        box.registerProtocol();
         bentobox = box;
 
         ERC20(mim_).approve(address(box), uint(-1));

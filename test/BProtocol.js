@@ -719,6 +719,54 @@ describe("KashiPair Basic", function () {
             expect(await bamm.balanceOf(this.alice.address)).to.be.equal(getBigNumber(1, 18)) // 1 shares            
         })
 
+        it.only("deposit and withdraw only with mim via bentoBox", async function () {
+            const depositAmonut = getBigNumber(2, 18);
+            // bob bento deposit
+            await this.b.connect(this.bob).approve(this.bentoBox.address, depositAmonut);
+            await this.bentoBox.connect(this.bob).deposit(this.b.address, this.bob.address, this.bob.address, depositAmonut, 0)
+            // alice bento deposit
+            await this.b.connect(this.alice).approve(this.bentoBox.address, depositAmonut);
+            await this.bentoBox.connect(this.alice).deposit(this.b.address, this.alice.address, this.alice.address, depositAmonut, 0)
+            
+            x = await getBentoBoxBalance(this, this.b.address, this.bob.address)
+            console.log('bobBentoBal post bento', x.toString())
+            const bobBentoBalBefore = await getBentoBoxBalance(this, this.b.address, this.bob.address)
+            
+            console.log("Alice Asset in Bento", (await getBentoBoxBalance(this, this.b.address, this.alice.address)).toString())
+            console.log("Bob Asset in Bento", (bobBentoBalBefore).toString())
+            const bamm = this.BAMM
+            const withdrawAmountShare = getBigNumber(5, 17);
+            const withdrawAmountMim = getBigNumber(1, 18);
+
+            // deposit
+            // await this.b.connect(this.bob).approve(bamm.address, depositAmonut);
+            await setMasterContractApproval(this.bentoBox, this.bob, this.bob, this.bobPrivateKey, bamm.address, true)
+            await bamm.connect(this.bob).deposit(depositAmonut, true);
+            
+            x = await getBentoBoxBalance(this, this.b.address, this.bob.address)
+            console.log('bobBentoBal post deposit', x.toString())
+
+
+            expect(await bamm.balanceOf(this.bob.address)).to.be.equal(getBigNumber(1, 18))
+            expect((await getBentoBoxBalance(this, this.b.address, this.bob.address)).add(depositAmonut)).to.be.equal(bobBentoBalBefore)            
+            expect((await getBentoBoxBalance(this, this.b.address, bamm.address))).to.be.equal(depositAmonut)
+            
+            // withdraw
+            await bamm.connect(this.bob).withdraw(withdrawAmountShare, true)
+
+            x = await this.bentoBox.balanceOf(this.b.address, this.bob.address)
+            console.log('bobBentoBal post withdraw', x.toString())
+
+            expect((await getBentoBoxBalance(this, this.b.address, this.bob.address)).add(depositAmonut.sub(withdrawAmountMim))).to.be.equal(bobBentoBalBefore)            
+            expect((await getBentoBoxBalance(this, this.b.address, bamm.address))).to.be.equal(depositAmonut.sub(withdrawAmountMim))
+
+            // deposit with alice
+            await setMasterContractApproval(this.bentoBox, this.alice, this.alice, this.alicePrivateKey, bamm.address, true)
+            await bamm.connect(this.alice).deposit(depositAmonut, true)
+
+            expect(await bamm.balanceOf(this.alice.address)).to.be.equal(getBigNumber(1, 18)) // 1 shares            
+        })
+
         it("deposit and withdraw also with collateral", async function () {
             const bamm = this.BAMM
             const depositAmonut = getBigNumber(11, 17);
