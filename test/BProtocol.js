@@ -679,6 +679,14 @@ describe("KashiPair Basic", function () {
         })
     })
 
+    const isEqualWithRoundingErrorFlexability = (a, b, rounding) => {
+        if(a.gte(b)){
+            return a.sub(b).lte(rounding)
+        }else{
+            return b.sub(a).lte(rounding)
+        }
+    }
+
    describe.only("bamm", function () {
         async function getBentoBoxBalance(thisObject, token, address) {
             const share = await thisObject.bentoBox.balanceOf(token, address)
@@ -798,14 +806,6 @@ describe("KashiPair Basic", function () {
             expect(aliceColBalBefore.add(expectedColDelta.sub(1))).to.be.equal(aliceColBalAfter)
             expect(aliceMimBalBefore.add(expectedMimDelta)).to.be.equal(aliceMimBalAfter)
         })
-
-        const isEqualWithRoundingErrorFlexability = (a, b, rounding) => {
-            if(a.gte(b)){
-                return a.sub(b).lte(rounding)
-            }else{
-                return b.sub(a).lte(rounding)
-            }
-        }
 
         it("deposit and withdraw also with collateral via bentoBox", async function () {
             const bamm = this.BAMM
@@ -942,6 +942,43 @@ describe("KashiPair Basic", function () {
             await bamm.connect(this.bob).swap(wad, 1, dest, false)
             expect(await this.a.balanceOf(dest)).to.be.equal(expectedCol)
 
+            expect(await getBentoBoxBalance(this, this.b.address, feePool)).to.be.equal(wad.div(100))
+        })
+
+        it.only("swap via bentoBox", async function () {
+            const bamm = this.BAMM
+            const mimAmonut = getBigNumber(600, 18)
+            const colAmount = "3979999999999999997" // almost 4e17
+            const price = getBigNumber(105, 18)
+            const wad = getBigNumber(105, 17)
+
+            // deposit
+            await this.b.connect(this.bob).approve(bamm.address, mimAmonut);
+            await bamm.connect(this.bob).deposit(mimAmonut, false);
+
+            // transfer collateral
+            await this.a.connect(this.bob).approve(this.bentoBox.address, colAmount)
+            await this.bentoBox.connect(this.bob).deposit(this.a.address, this.bob.address, bamm.address, colAmount, 0)
+            //await this.a.connect(this.bob).transfer(bamm.address, getBigNumber(1, 18))
+            await this.oracle.connect(this.alice).set(price.toString())
+            await bamm.fetchPrice()
+
+            // with fee
+            await bamm.setParams(200, 100, 0)
+            const expectedCol = await bamm.getSwapGemAmount(wad)
+
+            // set up bentoBox
+            await this.b.connect(this.bob).approve(this.bentoBox.address, wad);
+            await this.bentoBox.connect(this.bob).deposit(this.b.address, this.bob.address, this.bob.address, wad, 0)
+
+            // do the swap
+            await setMasterContractApproval(this.bentoBox, this.bob, this.bob, this.bobPrivateKey, bamm.address, true)
+            const dest = "0x0000000000000000000000000000000000000007"
+
+            await bamm.connect(this.bob).swap(wad, 1, dest, true)
+            
+            const roundingErrorFlex = getBigNumber(2, 0)
+            expect(isEqualWithRoundingErrorFlexability((await getBentoBoxBalance(this, this.a.address, dest)), expectedCol, roundingErrorFlex)).to.be.true
             expect(await getBentoBoxBalance(this, this.b.address, feePool)).to.be.equal(wad.div(100))
         })
 
