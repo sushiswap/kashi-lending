@@ -737,7 +737,6 @@ describe("KashiPair Basic", function () {
             const withdrawAmountMim = getBigNumber(1, 18);
 
             // deposit
-            // await this.b.connect(this.bob).approve(bamm.address, depositAmonut);
             await setMasterContractApproval(this.bentoBox, this.bob, this.bob, this.bobPrivateKey, bamm.address, true)
             await bamm.connect(this.bob).deposit(depositAmonut, true);
 
@@ -799,6 +798,67 @@ describe("KashiPair Basic", function () {
             expect(aliceColBalBefore.add(expectedColDelta.sub(1))).to.be.equal(aliceColBalAfter)
             expect(aliceMimBalBefore.add(expectedMimDelta)).to.be.equal(aliceMimBalAfter)
         })
+
+        const isEqualWithRoundingErrorFlexability = (a, b, rounding) => {
+            if(a.gte(b)){
+                return a.sub(b).lte(rounding)
+            }else{
+                return b.sub(a).lte(rounding)
+            }
+        }
+
+        it("deposit and withdraw also with collateral via bentoBox", async function () {
+            const bamm = this.BAMM
+            const depositAmonut = getBigNumber(11, 17);
+            const aliceDepositAmonut = getBigNumber(22, 17);
+
+            // bob bento deposit
+            await this.b.connect(this.bob).approve(this.bentoBox.address, depositAmonut);
+            await this.bentoBox.connect(this.bob).deposit(this.b.address, this.bob.address, this.bob.address, depositAmonut, 0)
+            // alice bento deposit
+            await this.b.connect(this.alice).approve(this.bentoBox.address, aliceDepositAmonut);
+            await this.bentoBox.connect(this.alice).deposit(this.b.address, this.alice.address, this.alice.address, aliceDepositAmonut, 0)
+            
+            // deposit
+            await setMasterContractApproval(this.bentoBox, this.bob, this.bob, this.bobPrivateKey, bamm.address, true)
+            await bamm.connect(this.bob).deposit(depositAmonut, true);
+
+            // transfer collateral
+            await this.a.connect(this.bob).approve(this.bentoBox.address, getBigNumber(1, 18))
+            await this.bentoBox.connect(this.bob).deposit(this.a.address, this.bob.address, bamm.address, getBigNumber(1, 18), 0)
+            // //await this.a.connect(this.bob).transfer(bamm.address, getBigNumber(1, 18))
+            await this.oracle.connect(this.alice).set(getBigNumber(11, 17).toString())
+
+            // now there are 1.1 of mim, and 1.1 worth of collateral
+
+            // deposit 2.2 of mim
+            await setMasterContractApproval(this.bentoBox, this.alice, this.alice, this.alicePrivateKey, bamm.address, true)
+            await bamm.connect(this.alice).deposit(aliceDepositAmonut, true)
+
+            expect((await bamm.balanceOf(this.alice.address))).to.be.equal(getBigNumber(1, 18))
+
+            // now there are 3.3 of mim and 1.1 worth of collateral
+
+            // withdraw half the deposit. get 3.3/4 = 0.825 mim and 1.0/4 = 0.25 of collateral
+            const aliceMimBentoBalBefore = await getBentoBoxBalance(this, this.b.address, this.alice.address)
+            const aliceColBentoBalBefore = await getBentoBoxBalance(this, this.a.address, this.alice.address)
+
+            await bamm.connect(this.alice).withdraw(getBigNumber(5, 17), true)
+
+            const aliceMimBentoBalAfter = await getBentoBoxBalance(this, this.b.address, this.alice.address)
+            const aliceColBentoBalAfter = await getBentoBoxBalance(this, this.a.address, this.alice.address)
+
+
+            const expectedMimDelta = getBigNumber(825, 15)
+            const expectedColDelta = getBigNumber(25, 16)
+
+            // sub 1 to compensate on rounding errors
+            const roundingErrorFlex = getBigNumber(5, 0)
+            expect(isEqualWithRoundingErrorFlexability(aliceColBentoBalBefore.add(expectedColDelta), aliceColBentoBalAfter, roundingErrorFlex)).to.be.equal(true)
+            expect(aliceMimBentoBalBefore.add(expectedMimDelta)).to.be.equal(aliceMimBentoBalAfter)
+        })
+
+
 /*
     it('test getSwapEthAmount', async () => {
       // --- SETUP ---
