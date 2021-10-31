@@ -210,7 +210,7 @@ contract BAMM is PriceFormula, BoringOwnable, ERC20 {
 
         uint callerReward = mimBalanceBefore.sub(mimBalanceAfter).mul(callerFee) / 10000;
 
-        if(mimBalanceAfter >= callerReward) {
+        if((mimBalanceAfter >= callerReward) && (to != address(0))) {
             sendToken(mim, to, callerReward, true);
             mimBalanceAfter = mimBalanceAfter.sub(callerReward);
         }
@@ -226,22 +226,23 @@ contract BAMM is PriceFormula, BoringOwnable, ERC20 {
     ) public {
         // take the mim
         receiveToken(mim, extraMim, viaBentobox);
-
         // do the liquidation
         (uint mimBalanceBefore, uint collatBalanceBefore, uint mimBalanceAfter, uint collatBalanceAfter) =
-            liquidate(users, maxBorrowParts, to, swapper);
+            liquidate(users, maxBorrowParts, address(0), swapper);
 
         if(extraMim <= mimBalanceAfter) {
             sendToken(mim, msg.sender, extraMim, viaBentobox);
             return;
         }
 
+        uint liquidationSize = mimBalanceBefore.sub(mimBalanceAfter);
+        require(liquidationSize <= extraMim, "liquidateLikeTiran: insufficent extraMim");
         // send mim leftover to liquidator
-        if(mimBalanceBefore.sub(mimBalanceAfter) >= extraMim) {
-            uint returnAmount = mimBalanceBefore.sub(mimBalanceAfter).sub(extraMim);
+        if(liquidationSize < extraMim.sub(1)) {
+            uint returnAmount = extraMim.sub(liquidationSize);
+            returnAmount = returnAmount.sub(1);
             sendToken(mim, msg.sender, returnAmount, viaBentobox);
         }
-
         // send collateral to liquidator
         sendToken(collateral, to, collatBalanceAfter.sub(collatBalanceBefore), viaBentobox);
     }
