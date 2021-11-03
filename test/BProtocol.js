@@ -696,8 +696,7 @@ describe("KashiPair Basic", function () {
         return await thisObject.bentoBox.toAmount(token, share, false)            
     }
 
-   describe("bamm", function () {
-
+   describe.only("bamm", function () {
         it("deposit and withdraw only with mim", async function () {
             const bamm = this.BAMM
             const depositAmonut = getBigNumber(2, 18);
@@ -1175,11 +1174,6 @@ describe("KashiPair Basic", function () {
                     .liquidate([this.alice.address], [getBigNumber(20, 8)], this.invalidSwapper.address, this.invalidSwapper.address, false)
             ).to.be.revertedWith("KashiPair: Invalid swapper")
         })
-
-    })
-
-
-    describe.only('liquidateLikeTiran', function () {
         
         it("liquidateLikeTiran", async function () {
             const bamm = this.BAMM
