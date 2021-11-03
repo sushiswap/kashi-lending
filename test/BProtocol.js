@@ -859,6 +859,8 @@ describe("KashiPair Basic", function () {
         })
 
 
+
+
 /*
     it('test getSwapEthAmount', async () => {
       // --- SETUP ---
@@ -1078,7 +1080,6 @@ describe("KashiPair Basic", function () {
             const pairMimBalBefore = await getBentoBoxBalance(this, this.b.address, this.pairHelper.contract.address)
             const nullAddr = "0x0000000000000000000000000000000000000000"
             const rewardAddress = "0x0000000000000000000000000000000000000007"
-            const rewardBalanceBefore = await getBentoBoxBalance(this, this.b.address, rewardAddress)
 
             // liquidate
             await this.b.connect(this.bob).approve(bamm.address, liquidationAmount);
@@ -1107,6 +1108,7 @@ describe("KashiPair Basic", function () {
             
             expect(collateralInMim).to.be.equal(roundedRewardBalance)
         })
+
 
         it("liquidateLikeTiran via bentoBox", async function () {
             const bamm = this.BAMM
@@ -1145,7 +1147,6 @@ describe("KashiPair Basic", function () {
             const pairMimBalBefore = await getBentoBoxBalance(this, this.b.address, this.pairHelper.contract.address)
             const nullAddr = "0x0000000000000000000000000000000000000000"
             const rewardAddress = "0x0000000000000000000000000000000000000007"
-            const rewardBalanceBefore = await getBentoBoxBalance(this, this.b.address, rewardAddress)
 
             // liquidate
             await this.b.connect(this.bob).approve(bamm.address, liquidationAmount);
@@ -1155,7 +1156,6 @@ describe("KashiPair Basic", function () {
 
             const deltaMimBamm = bammMimBalBefore.sub(bammMimBalAfter)
             const deltaMimPair = pairMimBalAfter.sub(pairMimBalBefore)
-            const bobMimBalAfter = await this.b.balanceOf(this.bob.address)
             const bobMimBentoBalAfter = await getBentoBoxBalance(this, this.b.address, this.bob.address)
             const rewardBalance = await getBentoBoxBalance(this, this.a.address, rewardAddress)
             // check bamm MIM is the same
@@ -1171,7 +1171,156 @@ describe("KashiPair Basic", function () {
             expect(collateralInMim).to.be.equal(roundedRewardBalance)
         })
 
-        // liquidate normal test - TODO
+        it("when BAMM has sufficient funds liquidateLikeTiran should return tiran money", async function () {
+            const bamm = this.BAMM
+            const price = getBigNumber(11, 27);
+
+            await this.pairHelper.run((cmd) => [
+                cmd.as(this.bob).approveAsset(getBigNumber(310, 8)),
+                cmd.as(this.bob).depositAsset(getBigNumber(290, 8)),
+                cmd.approveCollateral(getBigNumber(100)),
+                cmd.depositCollateral(getBigNumber(100)),
+                cmd.borrow(sansBorrowFee(getBigNumber(75, 8))),
+                cmd.accrue(),
+                cmd.do(this.oracle.set, price.toString()),
+                cmd.updateExchangeRate(),
+                cmd.do(this.bentoBox.connect(this.bob).deposit, this.b.address, this.bob.address, this.bob.address, getBigNumber(20, 8), 0),
+                cmd.do(this.pairHelper.contract.connect(this.bob).removeAsset, this.bob.address, getBigNumber(50, 8)),
+            ])
+
+            await bamm.setParams(20, 0, 100)
+
+            // deposit
+            const liquidationShare = await this.pairHelper.contract.userBorrowPart(this.alice.address) //getBigNumber(20, 18);
+            const liquidationAmount = (await toAmount(this, this.b.address, liquidationShare)).add(11)
+
+            // making sure bamm has sufficient funds
+            const depositAmonut = liquidationAmount
+            await this.b.connect(this.bob).approve(this.bentoBox.address, depositAmonut);
+            await this.bentoBox.connect(this.bob).deposit(this.b.address, this.bob.address, this.bob.address, depositAmonut, 0)
+            await setMasterContractApproval(this.bentoBox, this.bob, this.bob, this.bobPrivateKey, bamm.address, true)
+            await bamm.connect(this.bob).deposit(depositAmonut, true);
+
+            const bammMimBalBefore = await getBentoBoxBalance(this, this.b.address, bamm.address)
+            const bobMimBalBefore = await this.b.balanceOf(this.bob.address)
+            const bammColBalBefore = await getBentoBoxBalance(this, this.a.address, bamm.address)
+            const pairMimBalBefore = await getBentoBoxBalance(this, this.b.address, this.pairHelper.contract.address)
+            const nullAddr = "0x0000000000000000000000000000000000000000"
+            const rewardAddress = "0x0000000000000000000000000000000000000007"
+
+            // liquidate
+            await this.b.connect(this.bob).approve(bamm.address, liquidationAmount);
+            await bamm.connect(this.bob).liquidateLikeTiran(liquidationAmount, [this.alice.address], [liquidationShare], rewardAddress, nullAddr, false)
+            const bammMimBalAfter = await getBentoBoxBalance(this, this.b.address, bamm.address)
+            const bammColBalAfter = await getBentoBoxBalance(this, this.a.address, bamm.address)            
+            const pairMimBalAfter = await getBentoBoxBalance(this, this.b.address, this.pairHelper.contract.address)
+
+            const deltaMimBamm = bammMimBalBefore.sub(bammMimBalAfter)
+            const deltaMimPair = pairMimBalAfter.sub(pairMimBalBefore)
+            const bobMimBalAfter = await this.b.balanceOf(this.bob.address)
+
+            const rewardBalance = await this.a.balanceOf(rewardAddress)
+
+            // tirans funds sould be returned
+            expect(bobMimBalAfter).to.be.equal(bobMimBalBefore)
+
+            // tirans collateral should not get any collateral reward
+            expect(rewardBalance).to.be.equal(0)
+
+            // check bamm MIM makes sense
+            expect(
+                isEqualWithRoundingErrorFlexability(bammMimBalBefore.sub(deltaMimPair), bammMimBalAfter, 2)
+            ).to.be.true
+            
+            const roundingFactor = getBigNumber(1, 11);
+            const deltaMimWithPermium = deltaMimPair.mul(112).div(100)
+            const collateralInMim = deltaMimWithPermium.mul(price).div(getBigNumber(1,18)).div(roundingFactor)
+            const roundedBammCollBalance = bammColBalAfter.div(roundingFactor)
+    
+            expect(bammColBalBefore).to.be.equal(0)
+            // liquidated collateral should be in the BAMM
+            expect(collateralInMim).to.be.equal(roundedBammCollBalance)
+        })
+
+        it("liquidateLikeTiran insufficent funds", async function () {
+            const bamm = this.BAMM
+            const price = getBigNumber(11, 27);
+
+            // bob bento deposit setup
+            const depositAmonut = getBigNumber(1000, 0)
+            await this.b.connect(this.bob).approve(this.bentoBox.address, depositAmonut);
+            await this.bentoBox.connect(this.bob).deposit(this.b.address, this.bob.address, this.bob.address, depositAmonut, 0)
+            await setMasterContractApproval(this.bentoBox, this.bob, this.bob, this.bobPrivateKey, bamm.address, true)
+            await bamm.connect(this.bob).deposit(depositAmonut, true);
+
+
+            await this.pairHelper.run((cmd) => [
+                cmd.as(this.bob).approveAsset(getBigNumber(310, 8)),
+                cmd.as(this.bob).depositAsset(getBigNumber(290, 8)),
+                cmd.approveCollateral(getBigNumber(100)),
+                cmd.depositCollateral(getBigNumber(100)),
+                cmd.borrow(sansBorrowFee(getBigNumber(75, 8))),
+                cmd.accrue(),
+                cmd.do(this.oracle.set, price.toString()),
+                cmd.updateExchangeRate(),
+                cmd.do(this.bentoBox.connect(this.bob).deposit, this.b.address, this.bob.address, this.bob.address, getBigNumber(20, 8), 0),
+                cmd.do(this.pairHelper.contract.connect(this.bob).removeAsset, this.bob.address, getBigNumber(50, 8)),
+            ])
+
+            await bamm.setParams(20, 0, 100)
+
+            // deposit
+            const liquidationShare = await this.pairHelper.contract.userBorrowPart(this.alice.address) //getBigNumber(20, 18);
+            const liquidationAmount = getBigNumber(1, 4)//(await toAmount(this, this.b.address, liquidationShare)).add(11)
+            const nullAddr = "0x0000000000000000000000000000000000000000"
+            const rewardAddress = "0x0000000000000000000000000000000000000007"
+
+            await this.b.connect(this.bob).approve(bamm.address, liquidationAmount);
+            await expect(
+                bamm.connect(this.bob)
+                    .liquidateLikeTiran(liquidationAmount, [this.alice.address], [liquidationShare], rewardAddress, nullAddr, false)
+            ).to.be.revertedWith('BoringMath: Underflow')
+        })
+
+        it("liquidateLikeTiran tiran calims to provide all funds but provides half", async function () {
+            const bamm = this.BAMM
+            const price = getBigNumber(11, 27);
+            const halfTheLiquidationAmount = getBigNumber(7500000027, 0).div(2)
+            // bob bento deposit setup
+            const depositAmonut = halfTheLiquidationAmount
+            await this.b.connect(this.bob).approve(this.bentoBox.address, depositAmonut);
+            await this.bentoBox.connect(this.bob).deposit(this.b.address, this.bob.address, this.bob.address, depositAmonut, 0)
+            await setMasterContractApproval(this.bentoBox, this.bob, this.bob, this.bobPrivateKey, bamm.address, true)
+            await bamm.connect(this.bob).deposit(depositAmonut, true);
+
+
+            await this.pairHelper.run((cmd) => [
+                cmd.as(this.bob).approveAsset(getBigNumber(310, 8)),
+                cmd.as(this.bob).depositAsset(getBigNumber(290, 8)),
+                cmd.approveCollateral(getBigNumber(100)),
+                cmd.depositCollateral(getBigNumber(100)),
+                cmd.borrow(sansBorrowFee(getBigNumber(75, 8))),
+                cmd.accrue(),
+                cmd.do(this.oracle.set, price.toString()),
+                cmd.updateExchangeRate(),
+                cmd.do(this.bentoBox.connect(this.bob).deposit, this.b.address, this.bob.address, this.bob.address, getBigNumber(20, 8), 0),
+                cmd.do(this.pairHelper.contract.connect(this.bob).removeAsset, this.bob.address, getBigNumber(50, 8)),
+            ])
+
+            await bamm.setParams(20, 0, 100)
+
+            // deposit
+            const liquidationShare = await this.pairHelper.contract.userBorrowPart(this.alice.address) //getBigNumber(20, 18);
+            const liquidationAmount = halfTheLiquidationAmount
+            const nullAddr = "0x0000000000000000000000000000000000000000"
+            const rewardAddress = "0x0000000000000000000000000000000000000007"
+
+            await this.b.connect(this.bob).approve(bamm.address, liquidationAmount);
+            await expect(
+                bamm.connect(this.bob)
+                    .liquidateLikeTiran(liquidationAmount, [this.alice.address], [liquidationShare], rewardAddress, nullAddr, false)
+            ).to.be.revertedWith('liquidateLikeTiran: insufficent extraMim')
+        })
     })
 
     describe.only("Liquidate", function () {
