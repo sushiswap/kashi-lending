@@ -858,6 +858,90 @@ describe("KashiPair Basic", function () {
             expect(aliceMimBentoBalBefore.add(expectedMimDelta)).to.be.equal(aliceMimBentoBalAfter)
         })
 
+        it.only("should fail when setParams is not called by owner", async function() {
+            const bamm = this.BAMM
+            await expect(
+                bamm.connect(this.bob).setParams(200, 100, 0)
+            ).to.be.revertedWith('Ownable: caller is not the owner')
+        })
+
+        it.only("should fail when setParams is with a fee above max fee", async function() {
+            const bamm = this.BAMM
+            await expect(
+                bamm.setParams(200, 101, 0)
+            ).to.be.revertedWith('setParams: fee is too big')
+        })
+
+        it.only("should fail when setParams is with a caller fee above max caller fee", async function() {
+            const bamm = this.BAMM
+            await expect(
+                bamm.setParams(200, 100, 101)
+            ).to.be.revertedWith('setParams: caller fee is too big')
+        })
+
+        it.only("should fail when setParams is with A param above max ", async function() {
+            const bamm = this.BAMM
+            await expect(
+                bamm.setParams(201, 100, 100)
+            ).to.be.revertedWith('setParams: A too big')
+        })
+
+        it.only("should fail when setParams is with A param below minimum ", async function() {
+            const bamm = this.BAMM
+            await expect(
+                bamm.setParams(19, 100, 100)
+            ).to.be.revertedWith('setParams: A too small')
+        })
+        
+        it.only("should fail when setParams is with A param below minimum ", async function() {
+            const bamm = this.BAMM
+            await expect(
+                bamm.setParams(19, 100, 100)
+            ).to.be.revertedWith('setParams: A too small')
+        })
+        
+        it.only("should fail to withdraw more than share", async function() {
+            const bamm = this.BAMM
+            const withdrawAmountShare = getBigNumber(1, 18);
+            // bob has 0
+            expect(await bamm.balanceOf(this.bob.address)).to.be.equal(0)
+            // try to withdraw
+            await expect(
+                bamm.connect(this.bob).withdraw(withdrawAmountShare, false)
+            ).to.be.revertedWith('withdraw: insufficient balance')      
+        })
+
+        it.only("swap should fail when swapper sets minimum gem to more than possible", async function () {
+            const bamm = this.BAMM
+            const mimAmonut = getBigNumber(600, 18)
+            const colAmount = "3979999999999999997" // almost 4e17
+            const price = getBigNumber(105, 18)
+            const wad = getBigNumber(105, 17)
+
+            // deposit
+            await this.b.connect(this.bob).approve(bamm.address, mimAmonut);
+            await bamm.connect(this.bob).deposit(mimAmonut, false);
+
+            // transfer collateral
+            await this.a.connect(this.bob).approve(this.bentoBox.address, colAmount)
+            await this.bentoBox.connect(this.bob).deposit(this.a.address, this.bob.address, bamm.address, colAmount, 0)
+            //await this.a.connect(this.bob).transfer(bamm.address, getBigNumber(1, 18))
+            await this.oracle.connect(this.alice).set(price.toString())
+            await bamm.fetchPrice()
+
+            // with fee
+            await bamm.setParams(200, 100, 0)
+            const expectedCol = await bamm.getSwapGemAmount(wad)
+
+            // do the swap
+            await this.b.connect(this.bob).approve(bamm.address, wad);
+            const dest = "0x0000000000000000000000000000000000000007"
+            const minGem = expectedCol.mul(10)
+            await expect(
+                bamm.connect(this.bob).swap(wad, minGem, dest, false)
+            ).to.be.revertedWith("swap: low return")
+        })
+
 
 /*
     it('test getSwapEthAmount', async () => {
