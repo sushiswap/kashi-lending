@@ -141,9 +141,9 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
     /// @notice Serves as the constructor for clones, as clones can't have a regular constructor
     /// @dev `data` is abi encoded in the format: (IERC20 collateral, IERC20 asset, IOracle oracle, bytes oracleData)
     function init(bytes calldata data) public payable override {
-        require(address(collateral) == address(0), "KashiPair: already initialized");
+        require(address(collateral) == address(0));
         (collateral, asset, oracle, oracleData) = abi.decode(data, (IERC20, IERC20, IOracle, bytes));
-        require(address(collateral) != address(0), "KashiPair: bad pair");
+        require(address(collateral) != address(0));
 
         accrueInfo.interestPerSecond = uint64(STARTING_INTEREST_PER_SECOND); // 1% APR, with 1e18 being 100%
     }
@@ -504,10 +504,10 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
             callData = abi.encodePacked(callData, value1, value2);
         }
 
-        require(callee != address(bentoBox) && callee != address(this), "KashiPair: can't call");
+        require(callee != address(bentoBox) && callee != address(this));
 
         (bool success, bytes memory returnData) = callee.call{value: value}(callData);
-        require(success, "KashiPair: call failed");
+        require(success);
         return (returnData, returnValues);
     }
 
@@ -607,7 +607,9 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
         address to,
         ISwapper swapper,
         bool open
-    ) public {
+    ) public
+      virtual
+    {
         // Oracle can fail but we still need to allow liquidations
         (, uint256 _exchangeRate) = updateExchangeRate();
         accrue();
