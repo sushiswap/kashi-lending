@@ -390,6 +390,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
     /// @return part Total part of the debt held by borrowers.
     /// @return share Total amount in shares borrowed.
     function borrow(address to, uint256 amount) public solvent returns (uint256 part, uint256 share) {
+        updateExchangeRate();
         accrue();
         (part, share) = _borrow(to, amount);
     }
