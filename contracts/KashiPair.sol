@@ -374,6 +374,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
 
     /// @dev Concrete implementation of `borrow`.
     function _borrow(address to, uint256 amount) internal returns (uint256 part, uint256 share) {
+        updateExchangeRate();
         uint256 feeAmount = amount.mul(BORROW_OPENING_FEE) / BORROW_OPENING_FEE_PRECISION; // A flat % fee is charged for any borrow
 
         (totalBorrow, part) = totalBorrow.add(amount.add(feeAmount), true);
@@ -392,7 +393,6 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
     /// @return part Total part of the debt held by borrowers.
     /// @return share Total amount in shares borrowed.
     function borrow(address to, uint256 amount) public solvent returns (uint256 part, uint256 share) {
-        updateExchangeRate();
         accrue();
         (part, share) = _borrow(to, amount);
     }
