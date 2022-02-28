@@ -145,7 +145,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
         (collateral, asset, oracle, oracleData) = abi.decode(data, (IERC20, IERC20, IOracle, bytes));
         require(address(collateral) != address(0), "KashiPair: bad pair");
         // to avoid share reset condition
-        require(bentoBox.balanceOf(asset, 0x000000000000000000000000000000000000dEaD) >= 1000, "KashiPair: dead balance less");
+        require(bentoBox.balanceOf(asset, 0x000000000000000000000000000000000000dEaD) >= 1, "KashiPair: dead balance less");
         
         accrueInfo.interestPerSecond = uint64(STARTING_INTEREST_PER_SECOND); // 1% APR, with 1e18 being 100%
     }
