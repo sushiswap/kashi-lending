@@ -8,3 +8,10 @@ coverage
 coverage.json
 gasReport.txt
 bin
+.DS_Store
+out/
+.cache
+types/
+*.tar.gz
+*.tgz
+*.zip
