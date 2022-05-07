@@ -144,7 +144,9 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
         require(address(collateral) == address(0), "KashiPair: already initialized");
         (collateral, asset, oracle, oracleData) = abi.decode(data, (IERC20, IERC20, IOracle, bytes));
         require(address(collateral) != address(0), "KashiPair: bad pair");
-
+        // to avoid share reset condition
+        require(bentoBox.balanceOf(asset, 0x000000000000000000000000000000000000dEaD) >= 1, "KashiPair: dead balance less");
+        
         accrueInfo.interestPerSecond = uint64(STARTING_INTEREST_PER_SECOND); // 1% APR, with 1e18 being 100%
     }
 
@@ -372,6 +374,7 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
 
     /// @dev Concrete implementation of `borrow`.
     function _borrow(address to, uint256 amount) internal returns (uint256 part, uint256 share) {
+        updateExchangeRate();
         uint256 feeAmount = amount.mul(BORROW_OPENING_FEE) / BORROW_OPENING_FEE_PRECISION; // A flat % fee is charged for any borrow
 
         (totalBorrow, part) = totalBorrow.add(amount.add(feeAmount), true);
