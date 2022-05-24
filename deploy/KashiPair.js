@@ -24,15 +24,16 @@ module.exports = async function (hre) {
         return
     }
     console.log("Chain:", chainId)
-    console.log("Balance:", (await funder.getBalance()).div("1000000000000000000").toString())
+    //console.log("Balance:", (await funder.getBalance()).div("1000000000000000000").toString())
     const deployerBalance = await deployer.getBalance()
+    console.log("Deployer", deployer.address)
 
     let sushiOwner = "0x10601b88F47e5FAfE9Da5Ac855c9E98e79903280"
     if (chainId == "1") {
         let sushiOwner = "0x19B3Eb3Af5D93b77a5619b047De0EED7115A19e7"
     }
 
-    let gasPrice = await funder.provider.getGasPrice()
+    let gasPrice = await deployer.provider.getGasPrice()
     if (chainId == 1) {
         gasPrice = gasPrice.add("20000000000")
     }
@@ -53,7 +54,7 @@ module.exports = async function (hre) {
 
     const initCodeHash = await new ethers.Contract(factory, factory_abi, deployer).pairCodeHash()
     console.log("InitCodeHash is", initCodeHash)
-
+    /*
     console.log("Deployer balance", deployerBalance.toString())
     console.log("Needed", finalGasPrice.mul(gasLimit).toString(), finalGasPrice.toString(), gasLimit.toString())
     if (deployerBalance.lt(finalGasPrice.mul(gasLimit))) {
@@ -65,7 +66,16 @@ module.exports = async function (hre) {
         })
         await tx.wait()
     }
-
+    */
+    console.log("Deploying UniSwapV3 oracle contract")
+    tx = await hre.deployments.deploy("UniSwapV3Oracle", {
+        from: deployer.address,
+        args: [],
+        log: true,
+        deterministicDeployment: false,
+        gasLimit: 1200000,
+        gasPrice: finalGasPrice,
+    })
     /*
     console.log("Deploying Bentobox contract")
     tx = await hre.deployments.deploy("BentoBoxV1", {
@@ -79,6 +89,7 @@ module.exports = async function (hre) {
 
     const bentobox = (await hre.ethers.getContractFactory("BentoBoxV1")).attach((await deployments.get("BentoBoxV1")).address)
     */
+   /*
     const bentobox = (await hre.ethers.getContractFactory("BentoBoxV1")).attach("0xF5BCE5077908a1b7370B9ae04AdC565EBd643966")
     console.log("Deploying KashiPair contract, using BentoBox", bentobox.address)
     tx = await hre.deployments.deploy("KashiPairMediumRiskV1", {
@@ -171,12 +182,12 @@ module.exports = async function (hre) {
         gasLimit: 5200000,
         gasPrice: finalGasPrice,
     })
-*/
+*//*
     const kashipair = (await hre.ethers.getContractFactory("KashiPairMediumRiskV1")).attach(
         (await deployments.get("KashiPairMediumRiskV1")).address
     )
     /*  const swapper = (await hre.ethers.getContractFactory("SushiSwapSwapperV1")).attach((await deployments.get("SushiSwapSwapperV1")).address)
-     */
+     *//*
     const swapper = (await hre.ethers.getContractFactory("SushiSwapSwapperV1")).attach("0x1766733112408b95239aD1951925567CB1203084")
     console.log("Whitelisting Swapper")
     tx = await kashipair.connect(deployer).setSwapper(swapper.address, true, {
