@@ -126,6 +126,9 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
     uint256 private constant LIQUIDATION_MULTIPLIER = 112000; // add 12%
     uint256 private constant LIQUIDATION_MULTIPLIER_PRECISION = 1e5;
 
+    uint256 private constant ALLOWED_DIVERGENCE = 97;
+    uint256 private constant DIVERGENCE_PRECISION = 100;
+
     // Fees
     uint256 private constant PROTOCOL_FEE = 10000; // 10%
     uint256 private constant PROTOCOL_FEE_DIVISOR = 1e5;
@@ -664,6 +667,15 @@ contract KashiPair is ERC20, BoringOwnable, IMasterContract {
             swapper.swap(collateral, asset, address(this), allBorrowShare, allCollateralShare);
 
             uint256 returnedShare = bentoBox.balanceOf(asset, address(this)).sub(uint256(totalAsset.elastic));
+            require(returnedShare >= bentoBox.toShare(asset,
+                (bentoBox.toAmount(
+                    collateral,
+                    allCollateralShare.mul(ALLOWED_DIVERGENCE) / (DIVERGENCE_PRECISION),
+                    false
+                )).mul(exchangeRate) / EXCHANGE_RATE_PRECISION),
+                false
+            , "KashiPair: Not enough return");
+
             uint256 extraShare = returnedShare.sub(allBorrowShare);
             uint256 feeShare = extraShare.mul(PROTOCOL_FEE) / PROTOCOL_FEE_DIVISOR; // % of profit goes to fee
             // solhint-disable-next-line reentrancy
