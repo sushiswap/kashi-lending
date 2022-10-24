@@ -2,6 +2,7 @@ artifacts/
 cache/
 node_modules/
 .vscode/
+.idea/
 .env
 yarn-error.log
 coverage
